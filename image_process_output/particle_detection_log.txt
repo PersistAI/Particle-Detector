@@ -1,0 +1,195 @@
+
+================================================================================
+Analysis Date: 2025-09-16 16:36:31
+Vial ID: DSC
+Images Analyzed: 4
+Result: ✅ PARTICLES DETECTED
+Moving Particles: 62
+Static Artifacts: 114
+Files Processed:
+  - DSC_2025-09-16-16-34-450105.jpg
+  - DSC_2025-09-16-16-34-460106.jpg
+  - DSC_2025-09-16-16-34-460107.jpg
+  - DSC_2025-09-16-16-34-460108.jpg
+
+Particle Details:
+  Particle 1: Movement=9.4px, Frames=4, AvgArea=4739.9px
+  Particle 2: Movement=231.9px, Frames=11, AvgArea=367.3px
+  Particle 3: Movement=126.9px, Frames=7, AvgArea=525.3px
+  Particle 4: Movement=8.2px, Frames=4, AvgArea=541.5px
+  Particle 5: Movement=161.9px, Frames=6, AvgArea=145.2px
+  Particle 6: Movement=19.7px, Frames=5, AvgArea=83.0px
+  Particle 7: Movement=5.9px, Frames=4, AvgArea=121.6px
+  Particle 8: Movement=8.4px, Frames=4, AvgArea=194.8px
+  Particle 9: Movement=45.8px, Frames=3, AvgArea=92.8px
+  Particle 10: Movement=9.1px, Frames=4, AvgArea=113.5px
+  Particle 11: Movement=6.2px, Frames=4, AvgArea=156.8px
+  Particle 12: Movement=8.7px, Frames=4, AvgArea=59.0px
+  Particle 13: Movement=82.0px, Frames=6, AvgArea=49.8px
+  Particle 14: Movement=12.3px, Frames=3, AvgArea=187.5px
+  Particle 15: Movement=43.8px, Frames=5, AvgArea=30.9px
+  Particle 16: Movement=19.2px, Frames=3, AvgArea=144.8px
+  Particle 17: Movement=47.3px, Frames=7, AvgArea=26.9px
+  Particle 18: Movement=18.4px, Frames=5, AvgArea=22.9px
+  Particle 19: Movement=18.8px, Frames=3, AvgArea=24.8px
+  Particle 20: Movement=15.2px, Frames=3, AvgArea=32.2px
+  Particle 21: Movement=5.0px, Frames=4, AvgArea=39.4px
+  Particle 22: Movement=73.5px, Frames=6, AvgArea=26.0px
+  Particle 23: Movement=45.2px, Frames=4, AvgArea=36.5px
+  Particle 24: Movement=8.3px, Frames=3, AvgArea=79.0px
+  Particle 25: Movement=5.7px, Frames=4, AvgArea=24.6px
+  Particle 26: Movement=6.5px, Frames=4, AvgArea=36.9px
+  Particle 27: Movement=5.4px, Frames=4, AvgArea=66.6px
+  Particle 28: Movement=18.1px, Frames=5, AvgArea=57.4px
+  Particle 29: Movement=20.2px, Frames=5, AvgArea=22.9px
+  Particle 30: Movement=39.2px, Frames=5, AvgArea=19.5px
+  Particle 31: Movement=17.7px, Frames=4, AvgArea=100.6px
+  Particle 32: Movement=16.8px, Frames=5, AvgArea=21.7px
+  Particle 33: Movement=12.2px, Frames=3, AvgArea=17.0px
+  Particle 34: Movement=25.5px, Frames=5, AvgArea=21.2px
+  Particle 35: Movement=5.2px, Frames=3, AvgArea=29.2px
+  Particle 36: Movement=97.7px, Frames=5, AvgArea=20.1px
+  Particle 37: Movement=18.2px, Frames=4, AvgArea=20.9px
+  Particle 38: Movement=64.1px, Frames=7, AvgArea=14.9px
+  Particle 39: Movement=7.5px, Frames=4, AvgArea=33.8px
+  Particle 40: Movement=58.4px, Frames=5, AvgArea=14.9px
+  Particle 41: Movement=40.1px, Frames=3, AvgArea=13.2px
+  Particle 42: Movement=42.6px, Frames=5, AvgArea=13.1px
+  Particle 43: Movement=142.8px, Frames=8, AvgArea=16.9px
+  Particle 44: Movement=25.2px, Frames=3, AvgArea=11.0px
+  Particle 45: Movement=5.0px, Frames=3, AvgArea=17.0px
+  Particle 46: Movement=19.5px, Frames=5, AvgArea=14.6px
+  Particle 47: Movement=29.1px, Frames=4, AvgArea=11.9px
+  Particle 48: Movement=30.0px, Frames=4, AvgArea=10.5px
+  Particle 49: Movement=11.7px, Frames=5, AvgArea=16.2px
+  Particle 50: Movement=5.6px, Frames=4, AvgArea=16.6px
+  Particle 51: Movement=19.1px, Frames=5, AvgArea=10.2px
+  Particle 52: Movement=56.6px, Frames=6, AvgArea=12.5px
+  Particle 53: Movement=11.0px, Frames=4, AvgArea=15.1px
+  Particle 54: Movement=26.2px, Frames=4, AvgArea=10.5px
+  Particle 55: Movement=6.5px, Frames=3, AvgArea=153.2px
+  Particle 56: Movement=50.7px, Frames=5, AvgArea=26.4px
+  Particle 57: Movement=7.8px, Frames=2, AvgArea=23.8px
+  Particle 58: Movement=13.9px, Frames=2, AvgArea=11.5px
+  Particle 59: Movement=39.7px, Frames=4, AvgArea=26.9px
+  Particle 60: Movement=135.6px, Frames=6, AvgArea=229.5px
+  Particle 61: Movement=70.8px, Frames=4, AvgArea=99.5px
+  Particle 62: Movement=22.1px, Frames=3, AvgArea=15.8px
+Output Files Generated:
+  - DSC_RESULT.jpg (summary with trajectories)
+  - DSC_DSC_2025-09-16-16-34-450105_marked.jpg
+  - DSC_DSC_2025-09-16-16-34-460106_marked.jpg
+  - DSC_DSC_2025-09-16-16-34-460107_marked.jpg
+  - DSC_DSC_2025-09-16-16-34-460108_marked.jpg
+
+================================================================================
+Analysis Date: 2025-09-16 16:39:56
+Vial ID: DSC
+Images Analyzed: 4
+Result: ✅ PARTICLES DETECTED
+Moving Particles: 39
+Static Artifacts: 146
+Files Processed:
+  - DSC_2025-09-16-16-39-000109.jpg
+  - DSC_2025-09-16-16-39-000110.jpg
+  - DSC_2025-09-16-16-39-000111.jpg
+  - DSC_2025-09-16-16-39-010112.jpg
+
+Particle Details:
+  Particle 1: Movement=38.0px, Frames=4, AvgArea=6578.5px
+  Particle 2: Movement=47.2px, Frames=4, AvgArea=2126.9px
+  Particle 3: Movement=23.1px, Frames=4, AvgArea=2870.1px
+  Particle 4: Movement=7.0px, Frames=2, AvgArea=1356.8px
+  Particle 5: Movement=98.5px, Frames=6, AvgArea=1042.3px
+  Particle 6: Movement=6.2px, Frames=4, AvgArea=1064.8px
+  Particle 7: Movement=5.5px, Frames=4, AvgArea=1145.6px
+  Particle 8: Movement=26.0px, Frames=4, AvgArea=1044.4px
+  Particle 9: Movement=111.5px, Frames=7, AvgArea=419.4px
+  Particle 10: Movement=76.9px, Frames=6, AvgArea=472.4px
+  Particle 11: Movement=93.0px, Frames=5, AvgArea=529.5px
+  Particle 12: Movement=5.8px, Frames=4, AvgArea=389.4px
+  Particle 13: Movement=5.0px, Frames=4, AvgArea=543.5px
+  Particle 14: Movement=199.6px, Frames=9, AvgArea=288.2px
+  Particle 15: Movement=34.6px, Frames=5, AvgArea=383.9px
+  Particle 16: Movement=80.7px, Frames=5, AvgArea=371.9px
+  Particle 17: Movement=6.2px, Frames=4, AvgArea=382.0px
+  Particle 18: Movement=382.3px, Frames=12, AvgArea=192.8px
+  Particle 19: Movement=6.2px, Frames=4, AvgArea=228.9px
+  Particle 20: Movement=5.0px, Frames=4, AvgArea=187.6px
+  Particle 21: Movement=38.1px, Frames=5, AvgArea=251.7px
+  Particle 22: Movement=52.4px, Frames=5, AvgArea=178.7px
+  Particle 23: Movement=33.0px, Frames=4, AvgArea=383.9px
+  Particle 24: Movement=6.2px, Frames=4, AvgArea=275.5px
+  Particle 25: Movement=7.1px, Frames=4, AvgArea=153.5px
+  Particle 26: Movement=5.2px, Frames=3, AvgArea=157.3px
+  Particle 27: Movement=5.0px, Frames=2, AvgArea=145.0px
+  Particle 28: Movement=6.0px, Frames=4, AvgArea=116.0px
+  Particle 29: Movement=117.0px, Frames=7, AvgArea=123.5px
+  Particle 30: Movement=7.1px, Frames=4, AvgArea=114.0px
+  Particle 31: Movement=7.3px, Frames=4, AvgArea=139.2px
+  Particle 32: Movement=52.1px, Frames=5, AvgArea=115.9px
+  Particle 33: Movement=132.3px, Frames=7, AvgArea=100.2px
+  Particle 34: Movement=9.6px, Frames=4, AvgArea=109.0px
+  Particle 35: Movement=45.0px, Frames=4, AvgArea=108.4px
+  Particle 36: Movement=237.9px, Frames=8, AvgArea=64.9px
+  Particle 37: Movement=23.3px, Frames=3, AvgArea=153.5px
+  Particle 38: Movement=29.1px, Frames=3, AvgArea=1933.2px
+  Particle 39: Movement=8.1px, Frames=3, AvgArea=178.8px
+Output Files Generated:
+  - DSC_RESULT.jpg (summary with trajectories)
+  - DSC_DSC_2025-09-16-16-39-000109_marked.jpg
+  - DSC_DSC_2025-09-16-16-39-000110_marked.jpg
+  - DSC_DSC_2025-09-16-16-39-000111_marked.jpg
+  - DSC_DSC_2025-09-16-16-39-010112_marked.jpg
+
+================================================================================
+Analysis Date: 2025-09-16 16:42:31
+Vial ID: DSC
+Images Analyzed: 7
+Result: ✅ PARTICLES DETECTED
+Moving Particles: 25
+Static Artifacts: 6
+Files Processed:
+  - DSC_2025-09-16-16-42-000113.jpg
+  - DSC_2025-09-16-16-42-000114.jpg
+  - DSC_2025-09-16-16-42-010115.jpg
+  - DSC_2025-09-16-16-42-110116.jpg
+  - DSC_2025-09-16-16-42-120117.jpg
+  - DSC_2025-09-16-16-42-120118.jpg
+  - DSC_2025-09-16-16-42-120119.jpg
+
+Particle Details:
+  Particle 1: Movement=5.1px, Frames=2, AvgArea=5.0px
+  Particle 2: Movement=55.7px, Frames=6, AvgArea=7.6px
+  Particle 3: Movement=143.8px, Frames=14, AvgArea=335.5px
+  Particle 4: Movement=5.8px, Frames=2, AvgArea=14.8px
+  Particle 5: Movement=7.2px, Frames=2, AvgArea=6.0px
+  Particle 6: Movement=101.5px, Frames=7, AvgArea=2605.9px
+  Particle 7: Movement=54.2px, Frames=7, AvgArea=563.8px
+  Particle 8: Movement=209.9px, Frames=13, AvgArea=343.8px
+  Particle 9: Movement=108.0px, Frames=10, AvgArea=74.3px
+  Particle 10: Movement=22.8px, Frames=8, AvgArea=78.6px
+  Particle 11: Movement=92.7px, Frames=9, AvgArea=292.7px
+  Particle 12: Movement=179.8px, Frames=16, AvgArea=14.1px
+  Particle 13: Movement=10.1px, Frames=3, AvgArea=6.2px
+  Particle 14: Movement=66.8px, Frames=9, AvgArea=134.1px
+  Particle 15: Movement=25.1px, Frames=4, AvgArea=9.8px
+  Particle 16: Movement=28.4px, Frames=7, AvgArea=3113.6px
+  Particle 17: Movement=5.4px, Frames=7, AvgArea=368.4px
+  Particle 18: Movement=5.4px, Frames=7, AvgArea=39.8px
+  Particle 19: Movement=31.6px, Frames=7, AvgArea=663.1px
+  Particle 20: Movement=29.4px, Frames=7, AvgArea=410.6px
+  Particle 21: Movement=6.4px, Frames=3, AvgArea=15635.8px
+  Particle 22: Movement=7.3px, Frames=2, AvgArea=4.2px
+  Particle 23: Movement=16.8px, Frames=4, AvgArea=619.8px
+  Particle 24: Movement=11.1px, Frames=4, AvgArea=188.8px
+  Particle 25: Movement=29.0px, Frames=4, AvgArea=16160.0px
+Output Files Generated:
+  - DSC_RESULT.jpg (summary with trajectories)
+  - DSC_DSC_2025-09-16-16-42-000113_marked.jpg
+  - DSC_DSC_2025-09-16-16-42-000114_marked.jpg
+  - DSC_DSC_2025-09-16-16-42-010115_marked.jpg
+  - DSC_DSC_2025-09-16-16-42-110116_marked.jpg
+  - DSC_DSC_2025-09-16-16-42-120117_marked.jpg
+  - DSC_DSC_2025-09-16-16-42-120118_marked.jpg
+  - DSC_DSC_2025-09-16-16-42-120119_marked.jpg
