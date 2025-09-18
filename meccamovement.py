@@ -1,18 +1,27 @@
 import time
 import os
+import socket
 from mecademicpy.robot import Robot
 
 # =====================
 # CONFIG
-ROBOT_IP     = "192.168.0.100"
+ROBOT_IP      = "192.168.0.100"
 SEQUENCE_FILE = "sequences_dualmode.txt"
 
 MOVE_WAIT   = 2.0   # seconds to wait after each movement
-RUN_VECTOR  = [0, 1, 2, 3, 4, 5, 6, 4, 3, 1, 0]  # order of sequences (set None for all in order)
+RUN_VECTOR  = [0, 1, 2, 3, 4, 5, 6, 4, 3, 1, 0]  # order of sequences
 
-PHOTO_SEQ   = [6]   # sequence(s) where photos are taken
-PHOTO_WAIT  = 4.0      # wait (s) only after those sequences
+PHOTO_SEQ       = [6]    # sequence(s) where robot should hold pose
+PHOTO_WAIT      = 3.0    # wait at PHOTO_SEQ
+PHOTO_PREP_SEQ  = [5]    # sequence(s) where we trigger DigiCam
+PHOTO_PREP_WAIT = 2.0    # wait after sending trigger before moving to next sequence
+
+MECCA_PORT = 50007
 # =====================
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+SEQ_PATH = os.path.join(BASE_DIR, SEQUENCE_FILE)
+
 
 def _parse_value(tok):
     try:
@@ -20,14 +29,15 @@ def _parse_value(tok):
     except Exception:
         return None
 
+
 def load_sequences():
     """Load sequences from file, including type and gripper state."""
     sequences = {}
-    if not os.path.exists(SEQUENCE_FILE):
-        print(f"❌ Sequence file not found: {SEQUENCE_FILE}")
+    if not os.path.exists(SEQ_PATH):
+        print(f"❌ Sequence file not found: {SEQ_PATH}")
         return sequences
 
-    with open(SEQUENCE_FILE, "r", encoding="utf-8") as f:
+    with open(SEQ_PATH, "r", encoding="utf-8") as f:
         lines = f.readlines()
 
     current_key, current_name, current_points = None, None, []
@@ -72,19 +82,23 @@ def load_sequences():
     if current_key is not None:
         sequences[current_key] = {"name": current_name, "points": current_points}
 
-    print(f"✅ Loaded {len(sequences)} sequences from {SEQUENCE_FILE}")
+    print(f"✅ Loaded {len(sequences)} sequences from {SEQ_PATH}")
     return sequences
 
 
-def run_sequences(robot, sequences):
-    """Run through sequences in chosen order."""
-    if RUN_VECTOR is not None:
-        order = RUN_VECTOR
-    else:
-        order = sorted(sequences.keys())
+def notify_opcua_take_photo():
+    """Tell OPC UA server to trigger DigiCam (fire-and-forget)."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.connect(("127.0.0.1", MECCA_PORT))
+            s.sendall(b"READY_FOR_PHOTO")
+            print("📡 Told OPC UA to capture (not waiting for reply).")
+    except Exception as e:
+        print(f"⚠️ Could not contact OPC UA server: {e}")
 
-    # normalize PHOTO_SEQ to list
-    photo_targets = PHOTO_SEQ if isinstance(PHOTO_SEQ, list) else [PHOTO_SEQ]
+
+def run_sequences(robot, sequences):
+    order = RUN_VECTOR if RUN_VECTOR is not None else sorted(sequences.keys())
 
     for key in order:
         if key not in sequences:
@@ -92,9 +106,9 @@ def run_sequences(robot, sequences):
             continue
         seq = sequences[key]
         print(f"\n▶ Running Sequence {key}: {seq['name']}")
+
         for i, wp in enumerate(seq["points"]):
             wtype, data, grip = wp["type"], wp["data"], wp["grip"]
-
             try:
                 if wtype == "cartesian":
                     robot.MoveLin(*data)
@@ -111,30 +125,48 @@ def run_sequences(robot, sequences):
             print(f"  Step {i+1}/{len(seq['points'])}: {wtype.upper()} → {data}, Gripper={grip}")
             time.sleep(MOVE_WAIT)
 
-        # === Photo pause if designated ===
-        if key in photo_targets:
-            print(f"📸 Pausing {PHOTO_WAIT}s at Sequence {key} for photo...")
+        # === Trigger photo early (prep sequence) ===
+        if key in PHOTO_PREP_SEQ:
+            print(f"⚡ Triggering photo at Sequence {key}")
+            notify_opcua_take_photo()
+            print(f"⏸️ Holding {PHOTO_PREP_WAIT}s before moving on...")
+            time.sleep(PHOTO_PREP_WAIT)
+
+        # === Hold at photo pose ===
+        if key in PHOTO_SEQ:
+            print(f"📸 Holding pose at Sequence {key} for {PHOTO_WAIT}s")
             time.sleep(PHOTO_WAIT)
 
     print("\n✅ All sequences complete.")
 
 
 def main():
+    print("🚀 MeccaMovement starting...")
+    print(f"🔗 Connecting to robot at {ROBOT_IP} ...")
+
     robot = Robot()
-    robot.Connect(ROBOT_IP)
-    robot.WaitConnected()
-    robot.ActivateRobot()
-    robot.Home()
-    robot.WaitHomed()
+    try:
+        robot.Connect(ROBOT_IP)
+        robot.WaitConnected()
+        robot.ActivateRobot()
+        robot.Home()
+        robot.WaitHomed()
+        print("✅ Robot ready")
+    except Exception as e:
+        print(f"❌ Robot connection failed: {e}")
+        input("Press Enter to exit...\n")
+        return
 
     sequences = load_sequences()
     if not sequences:
+        print("❌ No sequences loaded, exiting")
+        input("Press Enter to exit...\n")
         return
 
     run_sequences(robot, sequences)
-
-    # Keep robot active (don’t disconnect)
     print("\n🤖 Robot is still active and connected. Ready for next command.")
+
+    input("⏸️ Press Enter to exit...\n")
 
 
 if __name__ == "__main__":

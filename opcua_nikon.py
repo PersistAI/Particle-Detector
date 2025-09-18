@@ -1,50 +1,67 @@
-from opcua import Server, ua
+from opcua import Server
 import subprocess
 import os
 import time
 import sys
+import socket
+import threading
 
 # ==============================
 # USER SETTINGS
 # ==============================
 DIGICAM_CMD = r"C:\Program Files (x86)\digiCamControl\CameraControlCmd.exe"
-WAIT_SECONDS = 10  # ⏱️ Time to wait after trigger before running next script
-NEXT_SCRIPT = "vialprogram1.py"  # Python script to run after capture
+MECCA_PORT = 50007    # TCP port for Mecca script to connect
 # ==============================
 
-# 📂 Save directory (relative to this script folder)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SAVE_DIR = os.path.join(BASE_DIR, "image_process_input")
-
-# Ensure directory exists
 os.makedirs(SAVE_DIR, exist_ok=True)
 
-def trigger_handler(parent):
-    """OPC UA callable: trigger DigiCamControl capture, wait, then run another script."""
+
+# --- socket server for mecca communication ---
+def mecca_listener():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", MECCA_PORT))
+        s.listen(1)
+        print(f"📡 Mecca listener active on port {MECCA_PORT}")
+        while True:
+            conn, addr = s.accept()
+            with conn:
+                msg = conn.recv(1024).decode("utf-8").strip()
+                print(f"🤖 From Mecca: {msg}")
+                if msg == "READY_FOR_PHOTO":
+                    do_capture()   # blocks until DigiCamControl is done
+                    conn.sendall(b"PHOTO_DONE")
+
+
+def do_capture():
+    """Trigger DigiCamControl capture and wait until finished."""
     try:
-        # Fire camera (non-blocking)
-        subprocess.Popen(
+        print("📸 Capture triggered, waiting for DigiCamControl...")
+        result = subprocess.run(
             [DIGICAM_CMD, "/capture", "/dir", SAVE_DIR],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
         )
-        print("📸 Capture triggered...")
-
-        # Wait for images to download
-        print(f"⏳ Waiting {WAIT_SECONDS} seconds...")
-        time.sleep(WAIT_SECONDS)
-
-        # Run next script
-        script_path = os.path.join(BASE_DIR, NEXT_SCRIPT)
-        if os.path.exists(script_path):
-            print(f"▶️ Running next script: {NEXT_SCRIPT}")
-            subprocess.Popen([sys.executable, script_path])
-            return f"Capture done → waited {WAIT_SECONDS}s → ran {NEXT_SCRIPT}"
+        if result.returncode == 0:
+            print("✅ Capture complete, image saved.")
         else:
-            return f"Capture done → waited {WAIT_SECONDS}s → script not found: {NEXT_SCRIPT}"
-
+            print(f"❌ Capture failed (code {result.returncode}): {result.stderr}")
     except Exception as e:
-        return f"Error: {e}"
+        print(f"❌ Camera error: {e}")
+
+
+def trigger_handler(parent):
+    """OPC UA callable: launch meccamovement.py and wait for sync."""
+    try:
+        print("▶️ Launching meccamovement.py ...")
+        subprocess.Popen([sys.executable, os.path.join(BASE_DIR, "meccamovement.py")])
+        return None   # no string return → avoids VariantType error
+    except Exception as e:
+        print(f"Error launching meccamovement.py: {e}")
+        return None
+
 
 # --- OPC UA Server Setup ---
 server = Server()
@@ -53,19 +70,11 @@ server.set_endpoint("opc.tcp://0.0.0.0:4840/nikon_server/")
 uri = "http://example.com/nikon"
 idx = server.register_namespace(uri)
 
-# Camera object
 camera = server.nodes.objects.add_object(idx, "NikonD800E")
+camera.add_method(idx, "TriggerMeccaAndCapture", trigger_handler, [], [])
 
-# Add TriggerCapture method
-camera.add_method(
-    idx,
-    "TriggerCapture",
-    trigger_handler,
-    [], [ua.VariantType.String]
-)
-
-# --- Run Server ---
 if __name__ == "__main__":
+    threading.Thread(target=mecca_listener, daemon=True).start()
     server.start()
     print("✅ OPC UA Nikon server running at opc.tcp://0.0.0.0:4840/nikon_server/")
     try:
