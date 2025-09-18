@@ -1,0 +1,26 @@
+# Python cache & build files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+
+# VSCode settings
+.vscode/
+*.code-workspace
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Your picture folders (ignored)
+image_process_archive/
+image_process_input/
+image_process_output/
+
