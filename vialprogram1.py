@@ -23,7 +23,7 @@ MAX_AREA = 20
 THRESH_VALUE = 30               # Threshold sensitivity (lower = more sensitive)
 # Vial ROI (rectangle) - adjust these numbers for your setup
 X_MIN, X_MAX = 1970, 5390       # horizontal crop (left,right)
-Y_MIN, Y_MAX = 1280, 2632       # vertical crop (top,bottom)
+Y_MIN, Y_MAX = 2280, 3632       # vertical crop (top,bottom)
 #===============================
 # Motion detection settings
 MIN_MOVEMENT_DISTANCE = 5       # Minimum pixel distance to consider as movement

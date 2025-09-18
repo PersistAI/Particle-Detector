@@ -1,6 +1,8 @@
 # mecca_moves.py
 import time
 import os
+import subprocess
+import sys
 
 def _parse_value(tok):
     try:
@@ -72,13 +74,14 @@ def run_sequences(robot,
                   photo_prep_wait,
                   photo_seq,
                   photo_wait,
-                  camera_trigger):
+                  camera_trigger,
+                  post_photo_script=None):
     """
     Runs sequences with simple camera timing:
-      - For each sequence key in run_vector:
-        - execute all waypoints
-        - if key in photo_prep_seq: camera_trigger(); sleep(photo_prep_wait)
-        - if key in photo_seq: sleep(photo_wait)
+      - Execute waypoints (with move_wait per waypoint)
+      - Trigger camera at PHOTO_PREP_SEQ, wait PHOTO_PREP_WAIT
+      - Hold pose at PHOTO_SEQ, wait PHOTO_WAIT
+      - Optionally launch post_photo_script after PHOTO_WAIT
     """
     order = run_vector if run_vector is not None else sorted(sequences.keys())
     photo_prep = set(photo_prep_seq if isinstance(photo_prep_seq, list) else [photo_prep_seq])
@@ -107,9 +110,9 @@ def run_sequences(robot,
                 robot.GripperClose()
 
             if move_wait and move_wait > 0:
-                time.sleep(move_wait)   # <-- per-waypoint delay
+                time.sleep(move_wait)
 
-        # Fire camera at prep step (non-blocking), then wait a tunable time
+        # Fire camera at prep step
         if key in photo_prep:
             print(f"⚡ [PhotoPrep] Trigger camera at Sequence {key}")
             try:
@@ -126,4 +129,14 @@ def run_sequences(robot,
                 print(f"📸 [PhotoPose] Holding at Sequence {key} for {photo_wait}s")
                 time.sleep(photo_wait)
 
+            # Launch extra script once photo hold is done
+            if post_photo_script:
+                try:
+                    script_path = os.path.join(os.path.dirname(__file__), post_photo_script)
+                    print(f"▶️ Launching {post_photo_script} ...")
+                    subprocess.Popen([sys.executable, script_path])
+                except Exception as e:
+                    print(f"⚠️ Failed to launch {post_photo_script}: {e}")
+
     print("\n✅ All sequences complete (robot remains connected).")
+

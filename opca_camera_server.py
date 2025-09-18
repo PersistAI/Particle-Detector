@@ -17,7 +17,7 @@ SEQUENCE_FILE   = "sequences_dualmode.txt"  # parsed inside mecca_moves.load_seq
 
 # Movement & photo timing knobs
 MOVE_WAIT       = 2.0     # per-waypoint wait (seconds)
-RUN_VECTOR      = [0, 1, 2, 3, 4, 5, 6, 4, 3, 1, 0]
+RUN_VECTOR      = [4, 0, 1, 2, 3, 4, 5, 6, 4, 3, 1, 0,4 ]
 
 PHOTO_PREP_SEQ  = [5]     # where we TRIGGER DigiCam
 PHOTO_PREP_WAIT = 2.45    # wait after trigger before moving on
@@ -89,6 +89,7 @@ def _run_job():
             photo_seq=PHOTO_SEQ,
             photo_wait=PHOTO_WAIT,
             camera_trigger=fire_camera,
+            post_photo_script="vialprogram1.py", 
         )
         print("✅ Run complete. Robot remains connected and stiff.")
     except Exception as e:
