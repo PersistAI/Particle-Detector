@@ -2,6 +2,7 @@
 from opcua import Server
 from mecademicpy.robot import Robot
 import mecca_moves
+import mecca_moves_complete   # <--- new module for RunAll
 import subprocess
 import os
 import time
@@ -13,16 +14,19 @@ import threading
 DIGICAM_CMD     = r"C:\Program Files (x86)\digiCamControl\CameraControlCmd.exe"
 ROBOT_IP        = "192.168.0.100"
 
-SEQUENCE_FILE   = "sequences_dualmode.txt"  # parsed inside mecca_moves.load_sequences
+SEQUENCE_FILE   = "sequences_dualmode.txt"
 
-# Movement & photo timing knobs
-MOVE_WAIT       = 2.0     # per-waypoint wait (seconds)
-RUN_VECTOR      = [4, 0, 1, 2, 3, 4, 5, 6, 4, 3, 1, 0,4 ]
+# Movement & photo timing knobs for Run
+MOVE_WAIT       = 2.0
+RUN_VECTOR      = [4, 0, 1, 2, 3, 4, 5, 6, 4, 3, 1, 0, 4]
 
-PHOTO_PREP_SEQ  = [5]     # where we TRIGGER DigiCam
-PHOTO_PREP_WAIT = 2.45    # wait after trigger before moving on
-PHOTO_SEQ       = [6]     # where robot HOLDS pose
-PHOTO_WAIT      = 2.0    # hold time at photo pose
+PHOTO_PREP_SEQ  = [5]
+PHOTO_PREP_WAIT = 2.45
+PHOTO_SEQ       = [6]
+PHOTO_WAIT      = 1.20
+
+# Script to trigger after each photo
+POST_PHOTO_SCRIPT = "vialprogram1.py"
 # ==============================
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -30,29 +34,27 @@ SAVE_DIR = os.path.join(BASE_DIR, "image_process_input")
 SEQ_PATH = os.path.join(BASE_DIR, SEQUENCE_FILE)
 os.makedirs(SAVE_DIR, exist_ok=True)
 
-# --- Camera trigger (fire-and-forget) ---
+# --- Camera trigger ---
 def fire_camera():
-    """Tell DigiCamControl to capture (non-blocking)."""
     try:
         print("📸 [Camera] Firing DigiCamControl...")
         subprocess.Popen(
             [DIGICAM_CMD, "/capture", "/dir", SAVE_DIR],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)  # quiet on Windows
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
         )
         print("✅ [Camera] Trigger sent.")
     except Exception as e:
         print(f"❌ [Camera] Trigger error: {e}")
 
-# --- OPC UA server setup ---
+# --- OPC UA setup ---
 server = Server()
 server.set_endpoint("opc.tcp://0.0.0.0:4840/nikon_server/")
 
 uri = "http://example.com/nikon"
 idx = server.register_namespace(uri)
 root = server.nodes.objects
-
 cell = root.add_object(idx, "PhotoCell")
 
 # Persistent robot connection
@@ -67,13 +69,37 @@ def _robot_connect_once():
     robot.WaitHomed()
     print("✅ Robot connected, homed, and held (persistent).")
 
-# --- Background runner so OPC UA method returns immediately ---
+# --- Background runner infra ---
 _run_lock = threading.Lock()
 _is_running = False
 
-def _run_job():
+def _launch_job(fn):
+    """Launch a background run with exclusive lock."""
     global _is_running
-    try:
+    with _run_lock:
+        if _is_running:
+            print("⚠️ A run is already in progress; ignoring new trigger.")
+            return
+        _is_running = True
+
+    def _job():
+        global _is_running
+        try:
+            fn()
+        except Exception as e:
+            print(f"❌ Background job error: {e}")
+        finally:
+            with _run_lock:
+                _is_running = False
+            print("ℹ️ Ready for next command.")
+
+    threading.Thread(target=_job, daemon=True).start()
+
+# --- Methods exposed over OPC UA ---
+
+def ua_Run(parent):
+    """Run using mecca_moves (single-shot tuned version)."""
+    def _do():
         sequences = mecca_moves.load_sequences(SEQ_PATH)
         if not sequences:
             print("❌ No sequences loaded; aborting run.")
@@ -89,31 +115,39 @@ def _run_job():
             photo_seq=PHOTO_SEQ,
             photo_wait=PHOTO_WAIT,
             camera_trigger=fire_camera,
-            post_photo_script="vialprogram1.py", 
+            post_photo_script=POST_PHOTO_SCRIPT,
         )
-        print("✅ Run complete. Robot remains connected and stiff.")
-    except Exception as e:
-        print(f"❌ Background run error: {e}")
-    finally:
-        with _run_lock:
-            global _is_running
-            _is_running = False
-        print("ℹ️ Ready for next Run.")
-
-def ua_Run(parent):
-    """Fire-and-forget: start a run in the background and return immediately."""
-    global _is_running
-    with _run_lock:
-        if _is_running:
-            print("⚠️ A run is already in progress; ignoring new trigger.")
-            return None
-        _is_running = True
-    threading.Thread(target=_run_job, daemon=True).start()
-    # Return immediately so OPC UA client never times out
+        print("✅ Run complete.")
+    _launch_job(_do)
     return None
 
-# Register method (no strong typing → empty arg lists)
+
+def ua_RunAll(parent):
+    """Run using mecca_moves_complete (e.g. full grid)."""
+    def _do():
+        sequences = mecca_moves_complete.load_sequences(SEQ_PATH)
+        if not sequences:
+            print("❌ No sequences loaded; aborting RunAll.")
+            return
+
+        mecca_moves_complete.run_sequences(
+            robot=robot,
+            sequences=sequences,
+            run_vector=mecca_moves_complete.RUN_VECTOR,
+            move_wait=mecca_moves_complete.MOVE_WAIT,
+            photo_prep_seq=mecca_moves_complete.PHOTO_PREP_SEQ,
+            photo_prep_wait=mecca_moves_complete.PHOTO_PREP_WAIT,
+            photo_seq=mecca_moves_complete.PHOTO_SEQ,
+            photo_wait=mecca_moves_complete.PHOTO_WAIT,
+            camera_trigger=fire_camera,
+            post_photo_script=POST_PHOTO_SCRIPT,
+        )
+        print("✅ RunAll complete.")
+    _launch_job(_do)
+    return None
+# Register both methods
 cell.add_method(idx, "Run", ua_Run, [], [])
+cell.add_method(idx, "RunAll", ua_RunAll, [], [])
 
 if __name__ == "__main__":
     _robot_connect_once()
@@ -123,10 +157,4 @@ if __name__ == "__main__":
         while True:
             time.sleep(1)
     finally:
-        # Optional cleanup on shutdown (leave commented if you want to stay stiff)
-        # try:
-        #     robot.DeactivateRobot()
-        #     robot.Disconnect()
-        # except Exception as e:
-        #     print(f"⚠️ Shutdown cleanup issue: {e}")
         server.stop()
