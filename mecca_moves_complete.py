@@ -8,7 +8,7 @@ import sys
 # Movement & photo timing knobs
 # ==============================
 MOVE_WAIT       = 2.0
-RUN_VECTOR      = [ 0, 2, 3, 4, 5, 6, 4, 3, 1, 0]
+RUN_VECTOR      = [0, 2, 3, 4, 5, 6, 4, 3, 1, 0] 
 
 PHOTO_PREP_SEQ  = [5]
 PHOTO_PREP_WAIT = 2.45
@@ -18,11 +18,17 @@ PHOTO_WAIT      = 1.20
 # Grid layout
 ROWS            = 4       # A..D
 COLS            = 6       # 1..6
-X_SPACING       = 20.25    # A→D (rows, X+ direction)
-Y_SPACING       = 20.20    # 1→6 (cols, Y+ direction)
+X_SPACING       = 20.56   # A→D (rows, X+ direction)
+Y_SPACING       = 20.4    # 1→6 (cols, Y+ direction)
+
+# Target filtering
+TARGET_POSITIONS = [1, 2, 3, 4, 5, 6]
+
+# Safe sequence for run start/end
+SAFE_SEQ = 4  # set to None to disable
+
 # ==============================
 
-# --- Sequence Loader (same as mecca_moves) ---
 def _parse_value(tok):
     try:
         return float(tok.split("=")[1])
@@ -30,7 +36,6 @@ def _parse_value(tok):
         return None
 
 def load_sequences(seq_path):
-    """Load base sequences from file, including type and gripper state."""
     sequences = {}
     if not os.path.exists(seq_path):
         print(f"❌ Sequence file not found: {seq_path}")
@@ -86,17 +91,15 @@ def load_sequences(seq_path):
 
 # --- Offset Logic ---
 def _apply_offset_to_point(wp, dx, dy):
-    """Return a new waypoint with X,Y offsets applied if Cartesian."""
     if wp["type"] == "cartesian":
         new_data = wp["data"].copy()
-        new_data[0] += dx   # X
-        new_data[1] += dy   # Y
+        new_data[0] += dx
+        new_data[1] += dy
         return {"type": "cartesian", "data": new_data, "grip": wp["grip"]}
     else:
-        return wp  # leave joint moves unchanged
+        return wp
 
 def _offset_sequences(base_sequences, dx, dy):
-    """Apply XY offsets to sequences 0,1,2,3 only."""
     seqs = {}
     for key, seq in base_sequences.items():
         if key in (0, 1, 2, 3):
@@ -107,19 +110,26 @@ def _offset_sequences(base_sequences, dx, dy):
     return seqs
 
 def generate_grid_sequences(base_sequences):
-    """
-    Expand base sequences into a ROWS×COLS grid (e.g. A1..D6).
-    Columns = Y+, Rows = X+.
-    """
     grid_runs = []
-    for row in range(ROWS):     # A..D
-        for col in range(COLS): # 1..6
+    index = 1
+    for row in range(ROWS):
+        for col in range(COLS):
             dx = row * X_SPACING
             dy = col * Y_SPACING
             label = f"{chr(ord('A')+row)}{col+1}"
             seqs = _offset_sequences(base_sequences, dx, dy)
-            grid_runs.append((label, seqs))
+            grid_runs.append((index, label, seqs))
+            index += 1
     return grid_runs
+
+def _filter_grid(grid):
+    if not TARGET_POSITIONS:
+        return grid
+    filtered = []
+    for idx, label, seqs in grid:
+        if idx in TARGET_POSITIONS or label in TARGET_POSITIONS:
+            filtered.append((idx, label, seqs))
+    return filtered
 
 # --- Runner ---
 def run_sequences(robot,
@@ -133,13 +143,31 @@ def run_sequences(robot,
                   camera_trigger,
                   post_photo_script=None):
     """
-    Run through all vial positions defined by ROWS×COLS grid.
-    For each position, run the full run_vector sequence list with offsets.
+    Run through vial positions defined by ROWS×COLS grid.
+    If TARGET_POSITIONS is non-empty, only run those.
     """
-    grid = generate_grid_sequences(sequences)
 
-    for label, seqs in grid:
-        print(f"\n=== ▶ Starting vial position {label} ===")
+    grid = generate_grid_sequences(sequences)
+    grid = _filter_grid(grid)
+
+    # === Move to safe at start ===
+    if SAFE_SEQ is not None and SAFE_SEQ in sequences:
+        print(f"🚦 Moving to SAFE sequence {SAFE_SEQ} before run...")
+        for wp in sequences[SAFE_SEQ]["points"]:
+            if wp["type"] == "cartesian":
+                robot.MoveLin(*wp["data"])
+            else:
+                robot.MoveJoints(*wp["data"])
+            if wp["grip"] == "Open":
+                robot.GripperOpen()
+            elif wp["grip"] == "Closed":
+                robot.GripperClose()
+            if move_wait and move_wait > 0:
+                time.sleep(move_wait)
+
+    # === Run through all vials ===
+    for idx, label, seqs in grid:
+        print(f"\n=== ▶ Starting vial position {label} (#{idx}) ===")
         order = run_vector if run_vector is not None else sorted(seqs.keys())
         photo_prep = set(photo_prep_seq if isinstance(photo_prep_seq, list) else [photo_prep_seq])
         photo_pose = set(photo_seq if isinstance(photo_seq, list) else [photo_seq])
@@ -153,13 +181,10 @@ def run_sequences(robot,
 
             for i, wp in enumerate(seq["points"]):
                 wtype, data, grip = wp["type"], wp["data"], wp["grip"]
-                try:
-                    if wtype == "cartesian":
-                        robot.MoveLin(*data)
-                    else:
-                        robot.MoveJoints(*data)
-                except Exception as e:
-                    print(f"⚠️ Move rejected at step {i+1}: {e}")
+                if wtype == "cartesian":
+                    robot.MoveLin(*data)
+                else:
+                    robot.MoveJoints(*data)
 
                 if grip == "Open":
                     robot.GripperOpen()
@@ -186,7 +211,6 @@ def run_sequences(robot,
                     print(f"📸 [PhotoPose] Holding at Sequence {key} for {photo_wait}s")
                     time.sleep(photo_wait)
 
-                # Launch extra script
                 if post_photo_script:
                     try:
                         script_path = os.path.join(os.path.dirname(__file__), post_photo_script)
@@ -197,4 +221,19 @@ def run_sequences(robot,
 
         print(f"=== ✅ Finished vial position {label} ===")
 
-    print("\n✅ All vial positions complete (robot remains connected).")
+    # === Move to safe at end ===
+    if SAFE_SEQ is not None and SAFE_SEQ in sequences:
+        print(f"🚦 Moving to SAFE sequence {SAFE_SEQ} after run...")
+        for wp in sequences[SAFE_SEQ]["points"]:
+            if wp["type"] == "cartesian":
+                robot.MoveLin(*wp["data"])
+            else:
+                robot.MoveJoints(*wp["data"])
+            if wp["grip"] == "Open":
+                robot.GripperOpen()
+            elif wp["grip"] == "Closed":
+                robot.GripperClose()
+            if move_wait and move_wait > 0:
+                time.sleep(move_wait)
+
+    print("\n✅ Selected vial positions complete (robot remains connected).")
