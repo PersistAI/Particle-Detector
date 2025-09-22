@@ -1,4 +1,3 @@
-# mecca_moves_complete.py
 import time
 import os
 import subprocess
@@ -13,7 +12,7 @@ RUN_VECTOR      = [0, 2, 3, 4, 5, 6, 4, 3, 1, 0]
 PHOTO_PREP_SEQ  = [5]
 PHOTO_PREP_WAIT = 2.45
 PHOTO_SEQ       = [6]
-PHOTO_WAIT      = 1.20
+PHOTO_WAIT      = 1.2
 
 # Grid layout
 ROWS            = 4       # A..D
@@ -22,11 +21,16 @@ X_SPACING       = 20.56   # A→D (rows, X+ direction)
 Y_SPACING       = 20.4    # 1→6 (cols, Y+ direction)
 
 # Target filtering
-TARGET_POSITIONS = [1, 2, 3, 4, 5, 6]
+TARGET_POSITIONS = []
 
 # Safe sequence for run start/end
 SAFE_SEQ = 4  # set to None to disable
 
+# ==============================
+# Custom offsets for specific positions
+# Example: {"A2": (0.5, -0.3), "D6": (-1.0, 0.2)}
+# Units are in the same mm as X_SPACING and Y_SPACING
+CUSTOM_OFFSETS = {"A2": (0.5, -0.4)}
 # ==============================
 
 def _parse_value(tok):
@@ -117,6 +121,12 @@ def generate_grid_sequences(base_sequences):
             dx = row * X_SPACING
             dy = col * Y_SPACING
             label = f"{chr(ord('A')+row)}{col+1}"
+
+            # Apply custom offset if defined
+            extra_dx, extra_dy = CUSTOM_OFFSETS.get(label, (0.0, 0.0))
+            dx += extra_dx
+            dy += extra_dy
+
             seqs = _offset_sequences(base_sequences, dx, dy)
             grid_runs.append((index, label, seqs))
             index += 1

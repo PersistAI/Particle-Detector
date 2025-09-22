@@ -1,8 +1,37 @@
-# mecca_moves.py
 import time
 import os
 import subprocess
 import sys
+
+# ==============================
+# Movement & photo timing knobs
+# ==============================
+MOVE_WAIT       = 2.0
+RUN_VECTOR      = [0, 2, 3, 4, 5, 6, 4, 3, 1, 0] 
+
+PHOTO_PREP_SEQ  = [5]
+PHOTO_PREP_WAIT = 2.45
+PHOTO_SEQ       = [6]
+PHOTO_WAIT      = 1.2
+
+# Grid layout
+ROWS            = 4       # A..D
+COLS            = 6       # 1..6
+X_SPACING       = 20.56   # A→D (rows, X+ direction)
+Y_SPACING       = 20.4    # 1→6 (cols, Y+ direction)
+
+# Target filtering
+TARGET_POSITIONS = [1]
+
+# Safe sequence for run start/end
+SAFE_SEQ = 4  # set to None to disable
+
+# ==============================
+# Custom offsets for specific positions
+# Example: {"A2": (0.5, -0.3), "D6": (-1.0, 0.2)}
+# Units are in the same mm as X_SPACING and Y_SPACING
+CUSTOM_OFFSETS = {"A2": (0.5, -0.4)}
+# ==============================
 
 def _parse_value(tok):
     try:
@@ -11,7 +40,6 @@ def _parse_value(tok):
         return None
 
 def load_sequences(seq_path):
-    """Load sequences from file, including type and gripper state."""
     sequences = {}
     if not os.path.exists(seq_path):
         print(f"❌ Sequence file not found: {seq_path}")
@@ -62,10 +90,58 @@ def load_sequences(seq_path):
     if current_key is not None:
         sequences[current_key] = {"name": current_name, "points": current_points}
 
-    print(f"✅ Loaded {len(sequences)} sequences.")
+    print(f"✅ Loaded {len(sequences)} base sequences.")
     return sequences
 
+# --- Offset Logic ---
+def _apply_offset_to_point(wp, dx, dy):
+    if wp["type"] == "cartesian":
+        new_data = wp["data"].copy()
+        new_data[0] += dx
+        new_data[1] += dy
+        return {"type": "cartesian", "data": new_data, "grip": wp["grip"]}
+    else:
+        return wp
 
+def _offset_sequences(base_sequences, dx, dy):
+    seqs = {}
+    for key, seq in base_sequences.items():
+        if key in (0, 1, 2, 3):
+            pts = [_apply_offset_to_point(wp, dx, dy) for wp in seq["points"]]
+            seqs[key] = {"name": seq["name"] + f" (offset {dx},{dy})", "points": pts}
+        else:
+            seqs[key] = seq
+    return seqs
+
+def generate_grid_sequences(base_sequences):
+    grid_runs = []
+    index = 1
+    for row in range(ROWS):
+        for col in range(COLS):
+            dx = row * X_SPACING
+            dy = col * Y_SPACING
+            label = f"{chr(ord('A')+row)}{col+1}"
+
+            # Apply custom offset if defined
+            extra_dx, extra_dy = CUSTOM_OFFSETS.get(label, (0.0, 0.0))
+            dx += extra_dx
+            dy += extra_dy
+
+            seqs = _offset_sequences(base_sequences, dx, dy)
+            grid_runs.append((index, label, seqs))
+            index += 1
+    return grid_runs
+
+def _filter_grid(grid):
+    if not TARGET_POSITIONS:
+        return grid
+    filtered = []
+    for idx, label, seqs in grid:
+        if idx in TARGET_POSITIONS or label in TARGET_POSITIONS:
+            filtered.append((idx, label, seqs))
+    return filtered
+
+# --- Runner ---
 def run_sequences(robot,
                   sequences: dict,
                   run_vector,
@@ -77,66 +153,97 @@ def run_sequences(robot,
                   camera_trigger,
                   post_photo_script=None):
     """
-    Runs sequences with simple camera timing:
-      - Execute waypoints (with move_wait per waypoint)
-      - Trigger camera at PHOTO_PREP_SEQ, wait PHOTO_PREP_WAIT
-      - Hold pose at PHOTO_SEQ, wait PHOTO_WAIT
-      - Optionally launch post_photo_script after PHOTO_WAIT
+    Run through vial positions defined by ROWS×COLS grid.
+    If TARGET_POSITIONS is non-empty, only run those.
     """
-    order = run_vector if run_vector is not None else sorted(sequences.keys())
-    photo_prep = set(photo_prep_seq if isinstance(photo_prep_seq, list) else [photo_prep_seq])
-    photo_pose = set(photo_seq if isinstance(photo_seq, list) else [photo_seq])
 
-    for key in order:
-        if key not in sequences:
-            print(f"⚠️ Sequence {key} missing, skipping")
-            continue
-        seq = sequences[key]
-        print(f"\n▶ Running Sequence {key}: {seq['name']}")
+    grid = generate_grid_sequences(sequences)
+    grid = _filter_grid(grid)
 
-        for i, wp in enumerate(seq["points"]):
-            wtype, data, grip = wp["type"], wp["data"], wp["grip"]
-            try:
+    # === Move to safe at start ===
+    if SAFE_SEQ is not None and SAFE_SEQ in sequences:
+        print(f"🚦 Moving to SAFE sequence {SAFE_SEQ} before run...")
+        for wp in sequences[SAFE_SEQ]["points"]:
+            if wp["type"] == "cartesian":
+                robot.MoveLin(*wp["data"])
+            else:
+                robot.MoveJoints(*wp["data"])
+            if wp["grip"] == "Open":
+                robot.GripperOpen()
+            elif wp["grip"] == "Closed":
+                robot.GripperClose()
+            if move_wait and move_wait > 0:
+                time.sleep(move_wait)
+
+    # === Run through all vials ===
+    for idx, label, seqs in grid:
+        print(f"\n=== ▶ Starting vial position {label} (#{idx}) ===")
+        order = run_vector if run_vector is not None else sorted(seqs.keys())
+        photo_prep = set(photo_prep_seq if isinstance(photo_prep_seq, list) else [photo_prep_seq])
+        photo_pose = set(photo_seq if isinstance(photo_seq, list) else [photo_seq])
+
+        for key in order:
+            if key not in seqs:
+                print(f"⚠️ Sequence {key} missing, skipping")
+                continue
+            seq = seqs[key]
+            print(f"\n▶ Running Sequence {key}: {seq['name']}")
+
+            for i, wp in enumerate(seq["points"]):
+                wtype, data, grip = wp["type"], wp["data"], wp["grip"]
                 if wtype == "cartesian":
                     robot.MoveLin(*data)
                 else:
                     robot.MoveJoints(*data)
-            except Exception as e:
-                print(f"⚠️ Move rejected at step {i+1}: {e}")
 
-            if grip == "Open":
+                if grip == "Open":
+                    robot.GripperOpen()
+                elif grip == "Closed":
+                    robot.GripperClose()
+
+                if move_wait and move_wait > 0:
+                    time.sleep(move_wait)
+
+            # Fire camera at prep step
+            if key in photo_prep:
+                print(f"⚡ [PhotoPrep] Trigger camera at Sequence {key}")
+                try:
+                    camera_trigger()
+                except Exception as e:
+                    print(f"⚠️ camera_trigger() failed: {e}")
+                if photo_prep_wait and photo_prep_wait > 0:
+                    print(f"⏸️ [PhotoPrep] Waiting {photo_prep_wait}s")
+                    time.sleep(photo_prep_wait)
+
+            # Hold at photo pose
+            if key in photo_pose:
+                if photo_wait and photo_wait > 0:
+                    print(f"📸 [PhotoPose] Holding at Sequence {key} for {photo_wait}s")
+                    time.sleep(photo_wait)
+
+                if post_photo_script:
+                    try:
+                        script_path = os.path.join(os.path.dirname(__file__), post_photo_script)
+                        print(f"▶️ Launching {post_photo_script} ...")
+                        subprocess.Popen([sys.executable, script_path])
+                    except Exception as e:
+                        print(f"⚠️ Failed to launch {post_photo_script}: {e}")
+
+        print(f"=== ✅ Finished vial position {label} ===")
+
+    # === Move to safe at end ===
+    if SAFE_SEQ is not None and SAFE_SEQ in sequences:
+        print(f"🚦 Moving to SAFE sequence {SAFE_SEQ} after run...")
+        for wp in sequences[SAFE_SEQ]["points"]:
+            if wp["type"] == "cartesian":
+                robot.MoveLin(*wp["data"])
+            else:
+                robot.MoveJoints(*wp["data"])
+            if wp["grip"] == "Open":
                 robot.GripperOpen()
-            elif grip == "Closed":
+            elif wp["grip"] == "Closed":
                 robot.GripperClose()
-
             if move_wait and move_wait > 0:
                 time.sleep(move_wait)
 
-        # Fire camera at prep step
-        if key in photo_prep:
-            print(f"⚡ [PhotoPrep] Trigger camera at Sequence {key}")
-            try:
-                camera_trigger()
-            except Exception as e:
-                print(f"⚠️ camera_trigger() failed: {e}")
-            if photo_prep_wait and photo_prep_wait > 0:
-                print(f"⏸️ [PhotoPrep] Waiting {photo_prep_wait}s")
-                time.sleep(photo_prep_wait)
-
-        # Hold at photo pose
-        if key in photo_pose:
-            if photo_wait and photo_wait > 0:
-                print(f"📸 [PhotoPose] Holding at Sequence {key} for {photo_wait}s")
-                time.sleep(photo_wait)
-
-            # Launch extra script once photo hold is done
-            if post_photo_script:
-                try:
-                    script_path = os.path.join(os.path.dirname(__file__), post_photo_script)
-                    print(f"▶️ Launching {post_photo_script} ...")
-                    subprocess.Popen([sys.executable, script_path])
-                except Exception as e:
-                    print(f"⚠️ Failed to launch {post_photo_script}: {e}")
-
-    print("\n✅ All sequences complete (robot remains connected).")
-
+    print("\n✅ Selected vial positions complete (robot remains connected).")

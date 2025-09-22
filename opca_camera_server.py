@@ -16,17 +16,8 @@ ROBOT_IP        = "192.168.0.100"
 
 SEQUENCE_FILE   = "sequences_dualmode.txt"
 
-# Movement & photo timing knobs for Run
-MOVE_WAIT       = 2.0
-RUN_VECTOR      = [4, 0, 1, 2, 3, 4, 5, 6, 4, 3, 1, 0, 4]
-
-PHOTO_PREP_SEQ  = [5]
-PHOTO_PREP_WAIT = 2.45
-PHOTO_SEQ       = [6]
-PHOTO_WAIT      = 1.20
-
 # Script to trigger after each photo
-POST_PHOTO_SCRIPT = "vialprogram1.py"
+POST_PHOTO_SCRIPT = None
 # ==============================
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -39,10 +30,9 @@ def fire_camera():
     try:
         print("📸 [Camera] Firing DigiCamControl...")
         subprocess.Popen(
-            [DIGICAM_CMD, "/capture", "/dir", SAVE_DIR],
+             [DIGICAM_CMD, "/capture", "/dir", SAVE_DIR, "/wait", "5000"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
         )
         print("✅ [Camera] Trigger sent.")
     except Exception as e:
