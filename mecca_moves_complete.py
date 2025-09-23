@@ -20,16 +20,12 @@ COLS            = 6       # 1..6
 X_SPACING       = 20.56   # A→D (rows, X+ direction)
 Y_SPACING       = 20.4    # 1→6 (cols, Y+ direction)
 
-# Target filtering
-TARGET_POSITIONS = []
-
 # Safe sequence for run start/end
 SAFE_SEQ = 4  # set to None to disable
 
 # ==============================
 # Custom offsets for specific positions
 # Example: {"A2": (0.5, -0.3), "D6": (-1.0, 0.2)}
-# Units are in the same mm as X_SPACING and Y_SPACING
 CUSTOM_OFFSETS = {"A2": (0.5, -0.4)}
 # ==============================
 
@@ -103,12 +99,15 @@ def _apply_offset_to_point(wp, dx, dy):
     else:
         return wp
 
-def _offset_sequences(base_sequences, dx, dy):
+def _offset_sequences(base_sequences, dx, dy, extra_dx=0.0, extra_dy=0.0, label=""):
     seqs = {}
     for key, seq in base_sequences.items():
         if key in (0, 1, 2, 3):
-            pts = [_apply_offset_to_point(wp, dx, dy) for wp in seq["points"]]
-            seqs[key] = {"name": seq["name"] + f" (offset {dx},{dy})", "points": pts}
+            pts = [_apply_offset_to_point(wp, dx + extra_dx, dy + extra_dy) for wp in seq["points"]]
+            seqs[key] = {
+                "name": seq["name"] + f" (offset {dx+extra_dx:.1f},{dy+extra_dy:.1f})",
+                "points": pts
+            }
         else:
             seqs[key] = seq
     return seqs
@@ -121,25 +120,11 @@ def generate_grid_sequences(base_sequences):
             dx = row * X_SPACING
             dy = col * Y_SPACING
             label = f"{chr(ord('A')+row)}{col+1}"
-
-            # Apply custom offset if defined
             extra_dx, extra_dy = CUSTOM_OFFSETS.get(label, (0.0, 0.0))
-            dx += extra_dx
-            dy += extra_dy
-
-            seqs = _offset_sequences(base_sequences, dx, dy)
+            seqs = _offset_sequences(base_sequences, dx, dy, extra_dx, extra_dy, label)
             grid_runs.append((index, label, seqs))
             index += 1
     return grid_runs
-
-def _filter_grid(grid):
-    if not TARGET_POSITIONS:
-        return grid
-    filtered = []
-    for idx, label, seqs in grid:
-        if idx in TARGET_POSITIONS or label in TARGET_POSITIONS:
-            filtered.append((idx, label, seqs))
-    return filtered
 
 # --- Runner ---
 def run_sequences(robot,
@@ -151,14 +136,21 @@ def run_sequences(robot,
                   photo_seq,
                   photo_wait,
                   camera_trigger,
-                  post_photo_script=None):
+                  post_photo_script=None,
+                  max_positions=None):  # 🆕 added
     """
     Run through vial positions defined by ROWS×COLS grid.
-    If TARGET_POSITIONS is non-empty, only run those.
+    Use `max_positions` to limit how many vial spots to analyze.
     """
 
     grid = generate_grid_sequences(sequences)
-    grid = _filter_grid(grid)
+
+    # 🆕 Apply position limit if provided
+    if max_positions is not None:
+        print(f"🆕 Limiting run to first {max_positions} positions (out of {len(grid)})")
+        grid = grid[:max_positions]
+    else:
+        print(f"🆕 No limit applied, running all {len(grid)} positions")
 
     # === Move to safe at start ===
     if SAFE_SEQ is not None and SAFE_SEQ in sequences:
@@ -204,7 +196,6 @@ def run_sequences(robot,
                 if move_wait and move_wait > 0:
                     time.sleep(move_wait)
 
-            # Fire camera at prep step
             if key in photo_prep:
                 print(f"⚡ [PhotoPrep] Trigger camera at Sequence {key}")
                 try:
@@ -215,12 +206,10 @@ def run_sequences(robot,
                     print(f"⏸️ [PhotoPrep] Waiting {photo_prep_wait}s")
                     time.sleep(photo_prep_wait)
 
-            # Hold at photo pose
             if key in photo_pose:
                 if photo_wait and photo_wait > 0:
                     print(f"📸 [PhotoPose] Holding at Sequence {key} for {photo_wait}s")
                     time.sleep(photo_wait)
-
                 if post_photo_script:
                     try:
                         script_path = os.path.join(os.path.dirname(__file__), post_photo_script)

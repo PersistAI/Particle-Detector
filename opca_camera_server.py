@@ -1,5 +1,5 @@
 # opcua_camera_server.py
-from opcua import Server
+from opcua import Server, ua
 from mecademicpy.robot import Robot
 import mecca_moves
 import mecca_moves_complete   # <--- new module for RunAll
@@ -7,6 +7,7 @@ import subprocess
 import os
 import time
 import threading
+import sys
 
 # ==============================
 # USER SETTINGS
@@ -16,8 +17,17 @@ ROBOT_IP        = "192.168.0.100"
 
 SEQUENCE_FILE   = "sequences_dualmode.txt"
 
+# Movement & photo timing knobs for Run
+MOVE_WAIT       = 2.0
+RUN_VECTOR      = [4, 0, 1, 2, 3, 4, 5, 6, 4, 3, 1, 0, 4]
+
+PHOTO_PREP_SEQ  = [5]
+PHOTO_PREP_WAIT = 2.45
+PHOTO_SEQ       = [6]
+PHOTO_WAIT      = 1.20
+
 # Script to trigger after each photo
-POST_PHOTO_SCRIPT = None
+POST_PHOTO_SCRIPT = "vialprogram1.py"
 # ==============================
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -30,9 +40,10 @@ def fire_camera():
     try:
         print("📸 [Camera] Firing DigiCamControl...")
         subprocess.Popen(
-             [DIGICAM_CMD, "/capture", "/dir", SAVE_DIR, "/wait", "5000"],
+            [DIGICAM_CMD, "/capture", "/dir", SAVE_DIR, "/wait", "5000"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
         )
         print("✅ [Camera] Trigger sent.")
     except Exception as e:
@@ -112,13 +123,23 @@ def ua_Run(parent):
     return None
 
 
-def ua_RunAll(parent):
+def ua_RunAll(parent, limit):
     """Run using mecca_moves_complete (e.g. full grid)."""
     def _do():
         sequences = mecca_moves_complete.load_sequences(SEQ_PATH)
+
         if not sequences:
             print("❌ No sequences loaded; aborting RunAll.")
             return
+
+        try:
+            # ✅ unwrap Variant to plain int if needed
+            max_pos = int(limit.Value if hasattr(limit, "Value") else limit)
+
+        except Exception as e:
+            print(f"⚠️ Could not parse limit: {e}")
+            max_pos = None
+            print(f"🆕 No limit applied, running all positions")
 
         mecca_moves_complete.run_sequences(
             robot=robot,
@@ -131,13 +152,19 @@ def ua_RunAll(parent):
             photo_wait=mecca_moves_complete.PHOTO_WAIT,
             camera_trigger=fire_camera,
             post_photo_script=POST_PHOTO_SCRIPT,
+            max_positions=max_pos   # ✅ limit applied
         )
         print("✅ RunAll complete.")
+
     _launch_job(_do)
     return None
+
+
 # Register both methods
 cell.add_method(idx, "Run", ua_Run, [], [])
-cell.add_method(idx, "RunAll", ua_RunAll, [], [])
+cell.add_method(idx, "RunAll", ua_RunAll,
+                [ua.VariantType.Int32],  # input argument (Int32)
+                [])
 
 if __name__ == "__main__":
     _robot_connect_once()

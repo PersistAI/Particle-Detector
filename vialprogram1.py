@@ -5,7 +5,7 @@ import os
 from collections import defaultdict
 import re
 import shutil
-
+from datetime import datetime
 # ==============================
 # USER SETTINGS
 # ==============================
@@ -286,11 +286,12 @@ def main():
         print(f"\n{status}")
         print(f"Static artifacts found: {analysis['static_count']}")
     if result_image is not None:
-        main_result_filename = f"{vial_id}_RESULT.jpg"
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        main_result_filename = f"{vial_id}_RESULT_{timestamp}.jpg"
         main_result_path = os.path.join(OUTPUT_FOLDER, main_result_filename)
         cv2.imwrite(main_result_path, result_image)
         print(f"\nSaved main result: {main_result_filename}")
-    valid_files, images = load_images(files)
+        valid_files, images = load_images(files)
     if len(images) >= 2:
         processed_images = [preprocess_image(img) for img in images]
         static_particles = detect_static_particles(processed_images)
@@ -305,7 +306,6 @@ def main():
             print(f"  Frame {i+1}: {frame_filename}")
     log_filename = "particle_detection_log.txt"
     log_path = os.path.join(OUTPUT_FOLDER, log_filename)
-    from datetime import datetime
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log_entry = f"""
 {'='*80}
