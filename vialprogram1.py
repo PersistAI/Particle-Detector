@@ -6,6 +6,8 @@ from collections import defaultdict
 import re
 import shutil
 from datetime import datetime
+import sys
+vial_label = sys.argv[1] if len(sys.argv) > 1 else "Unknown"
 # ==============================
 # USER SETTINGS
 # ==============================
@@ -20,7 +22,7 @@ ARCHIVE_FOLDER = os.path.join(BASE_DIR, "image_process_archive")
 #Sensitivity values
 MIN_AREA = 3                    # Minimum blob area in pixels
 MAX_AREA = 20
-THRESH_VALUE = 30               # Threshold sensitivity (lower = more sensitive)
+THRESH_VALUE = 50               # Threshold sensitivity (lower = more sensitive)
 # Vial ROI (rectangle) - adjust these numbers for your setup
 X_MIN, X_MAX = 1970, 5390       # horizontal crop (left,right)
 Y_MIN, Y_MAX = 2280, 3632       # vertical crop (top,bottom)
@@ -310,7 +312,7 @@ def main():
     log_entry = f"""
 {'='*80}
 Analysis Date: {timestamp}
-Vial ID: {vial_id}
+Vial ID: {vial_label}
 Images Analyzed: {len(files)}
 Result: {status}
 Moving Particles: {analysis['moving_count']}

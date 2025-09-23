@@ -10,9 +10,9 @@ MOVE_WAIT       = 2.0
 RUN_VECTOR      = [0, 2, 3, 4, 5, 6, 4, 3, 1, 0] 
 
 PHOTO_PREP_SEQ  = [5]
-PHOTO_PREP_WAIT = 2.45
+PHOTO_PREP_WAIT = 2.00
 PHOTO_SEQ       = [6]
-PHOTO_WAIT      = 1.2
+PHOTO_WAIT      = 2.0
 
 # Grid layout
 ROWS            = 4       # A..D
@@ -213,10 +213,11 @@ def run_sequences(robot,
                 if post_photo_script:
                     try:
                         script_path = os.path.join(os.path.dirname(__file__), post_photo_script)
-                        print(f"▶️ Launching {post_photo_script} ...")
-                        subprocess.Popen([sys.executable, script_path])
+                        print(f"▶️ Launching {post_photo_script} for {label} ...")
+                        subprocess.Popen([sys.executable, script_path, label])
                     except Exception as e:
                         print(f"⚠️ Failed to launch {post_photo_script}: {e}")
+
 
         print(f"=== ✅ Finished vial position {label} ===")
 
