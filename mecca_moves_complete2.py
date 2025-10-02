@@ -7,12 +7,15 @@ import sys
 # Movement & photo timing knobs
 # ==============================
 MOVE_WAIT       = 2.0
-RUN_VECTOR      = [0, 2, 3, 4, 5, 6, 4, 3, 1, 0] 
+RUN_VECTOR      = [0, 2, 3, 4, 6, 4, 7, 8, 7, 4, 6, 4, 3, 1, 0]
 
-PHOTO_PREP_SEQ  = [5]
-PHOTO_PREP_WAIT = 2.00
-PHOTO_SEQ       = [6]
-PHOTO_WAIT      = 2.0
+PHOTO_SEL       = [6]    # sequences where photo is taken
+PHOTO_WAIT      = 4.0
+
+VORTEX_SEQ      = [8]    # vortex/shake sequences (NO photo here)
+VORTEX_WAIT     = 2.0
+
+extra_analysis_wait_time = 4.0
 
 # Grid layout
 ROWS            = 4       # A..D
@@ -29,11 +32,13 @@ SAFE_SEQ = 4  # set to None to disable
 CUSTOM_OFFSETS = {"A2": (0.5, -0.4)}
 # ==============================
 
+
 def _parse_value(tok):
     try:
         return float(tok.split("=")[1])
     except Exception:
         return None
+
 
 def load_sequences(seq_path):
     sequences = {}
@@ -89,6 +94,7 @@ def load_sequences(seq_path):
     print(f"✅ Loaded {len(sequences)} base sequences.")
     return sequences
 
+
 # --- Offset Logic ---
 def _apply_offset_to_point(wp, dx, dy):
     if wp["type"] == "cartesian":
@@ -99,10 +105,11 @@ def _apply_offset_to_point(wp, dx, dy):
     else:
         return wp
 
+
 def _offset_sequences(base_sequences, dx, dy, extra_dx=0.0, extra_dy=0.0, label=""):
     seqs = {}
     for key, seq in base_sequences.items():
-        if key in (0, 1, 2, 3):
+        if key in (0, 1, 2, 3):  # apply grid offsets only to Cartesian base sequences
             pts = [_apply_offset_to_point(wp, dx + extra_dx, dy + extra_dy) for wp in seq["points"]]
             seqs[key] = {
                 "name": seq["name"] + f" (offset {dx+extra_dx:.1f},{dy+extra_dy:.1f})",
@@ -111,6 +118,7 @@ def _offset_sequences(base_sequences, dx, dy, extra_dx=0.0, extra_dy=0.0, label=
         else:
             seqs[key] = seq
     return seqs
+
 
 def generate_grid_sequences(base_sequences):
     grid_runs = []
@@ -126,31 +134,37 @@ def generate_grid_sequences(base_sequences):
             index += 1
     return grid_runs
 
-# --- Runner ---
+
+# --- Runner for Phase Separation ---
 def run_sequences(robot,
                   sequences: dict,
                   run_vector=RUN_VECTOR,
                   move_wait=MOVE_WAIT,
-                  photo_prep_seq=PHOTO_PREP_SEQ,
-                  photo_prep_wait=PHOTO_PREP_WAIT,
-                  photo_seq=PHOTO_SEQ,
+                  photo_sel=PHOTO_SEL,
                   photo_wait=PHOTO_WAIT,
+                  vortex_seq=VORTEX_SEQ,
+                  vortex_wait=VORTEX_WAIT,
                   camera_trigger=None,
                   post_photo_script=None,
-                  max_positions=None):  # 🆕 added
+                  max_positions=None):
     """
-    Run through vial positions defined by ROWS×COLS grid.
-    Use `max_positions` to limit how many vial spots to analyze.
+    Phase separation run:
+    - Photos ONLY at PHOTO_SEL sequences.
+    - Exactly two PHOTO_SEL hits per vial (pre- and post-vortex).
+    - Camera is triggered immediately upon reaching seq 6, THEN photo_wait is applied.
+    - Vortex sequences are motion only (no photos).
     """
 
     grid = generate_grid_sequences(sequences)
 
-    # 🆕 Apply position limit if provided
     if max_positions is not None:
         print(f"🆕 Limiting run to first {max_positions} positions (out of {len(grid)})")
         grid = grid[:max_positions]
     else:
         print(f"🆕 No limit applied, running all {len(grid)} positions")
+
+    photo_pose = set(photo_sel if isinstance(photo_sel, list) else [photo_sel])
+    vortex_pose = set(vortex_seq if isinstance(vortex_seq, list) else [vortex_seq])
 
     # === Move to safe at start ===
     if SAFE_SEQ is not None and SAFE_SEQ in sequences:
@@ -164,60 +178,69 @@ def run_sequences(robot,
                 robot.GripperOpen()
             elif wp["grip"] == "Closed":
                 robot.GripperClose()
-            if move_wait and move_wait > 0:
+            if move_wait > 0:
                 time.sleep(move_wait)
 
     # === Run through all vials ===
     for idx, label, seqs in grid:
         print(f"\n=== ▶ Starting vial position {label} (#{idx}) ===")
         order = run_vector if run_vector is not None else sorted(seqs.keys())
-        photo_prep = set(photo_prep_seq if isinstance(photo_prep_seq, list) else [photo_prep_seq])
-        photo_pose = set(photo_seq if isinstance(photo_seq, list) else [photo_seq])
+        photos_taken = 0
 
         for key in order:
             if key not in seqs:
                 print(f"⚠️ Sequence {key} missing, skipping")
                 continue
+
             seq = seqs[key]
             print(f"\n▶ Running Sequence {key}: {seq['name']}")
 
             for i, wp in enumerate(seq["points"]):
-                wtype, data, grip = wp["type"], wp["data"], wp["grip"]
-                if wtype == "cartesian":
-                    robot.MoveLin(*data)
+                if wp["type"] == "cartesian":
+                    robot.MoveLin(*wp["data"])
                 else:
-                    robot.MoveJoints(*data)
+                    robot.MoveJoints(*wp["data"])
 
-                if grip == "Open":
+                if wp["grip"] == "Open":
                     robot.GripperOpen()
-                elif grip == "Closed":
+                elif wp["grip"] == "Closed":
                     robot.GripperClose()
 
-                if move_wait and move_wait > 0:
-                    time.sleep(move_wait)
-
-            if key in photo_prep:
-                print(f"⚡ [PhotoPrep] Trigger camera at Sequence {key}")
-                try:
+                # 🟢 Key change: if this is a PHOTO_SEL sequence, trigger right after final waypoint
+                if key in photo_pose and i == len(seq["points"]) - 1:
+                    print(f"📸 Photo {photos_taken + 1}/2 at {label} (Seq {key})")
                     camera_trigger()
-                except Exception as e:
-                    print(f"⚠️ camera_trigger() failed: {e}")
-                if photo_prep_wait and photo_prep_wait > 0:
-                    print(f"⏸️ [PhotoPrep] Waiting {photo_prep_wait}s")
-                    time.sleep(photo_prep_wait)
+                    if photo_wait > 0:
+                        print(f"⏸️ Holding {photo_wait}s at Seq {key} for camera")
+                        time.sleep(photo_wait)
+                    photos_taken += 1
 
-            if key in photo_pose:
-                if photo_wait and photo_wait > 0:
-                    print(f"📸 [PhotoPose] Holding at Sequence {key} for {photo_wait}s")
-                    time.sleep(photo_wait)
-                if post_photo_script:
-                    try:
-                        script_path = os.path.join(os.path.dirname(__file__), post_photo_script)
-                        print(f"▶️ Launching {post_photo_script} for {label} ...")
-                        subprocess.Popen([sys.executable, script_path, label])
-                    except Exception as e:
-                        print(f"⚠️ Failed to launch {post_photo_script}: {e}")
+                    # Run analysis after the second photo
+                    if photos_taken == 2:
+                        print("⏳ Extra wait before analysis to ensure file saved...")
+                        time.sleep(2.0)  # safety buffer
+                        if post_photo_script:
+                            try:
+                                script_path = os.path.join(os.path.dirname(__file__), post_photo_script)
+                                print(f"▶️ Launching {post_photo_script} for {label} ...")
+                                subprocess.Popen([sys.executable, script_path, label])
+                            except Exception as e:
+                                print(f"⚠️ Failed to launch {post_photo_script}: {e}")
+                        photos_taken = 0  # reset for next vial
 
+                else:
+                    # Normal MOVE_WAIT for non-photo steps
+                    if move_wait > 0:
+                        time.sleep(move_wait)
+
+            # --- Vortex logic ---
+            if key in vortex_pose:
+                print(f"🌀 Vortex at Seq {key}, waiting {vortex_wait}s")
+                if vortex_wait > 0:
+                    time.sleep(vortex_wait)
+
+        if photos_taken != 0:
+            print(f"⚠️ Warning: Only {photos_taken}/2 photos taken for {label}. Check RUN_VECTOR.")
 
         print(f"=== ✅ Finished vial position {label} ===")
 
@@ -233,7 +256,7 @@ def run_sequences(robot,
                 robot.GripperOpen()
             elif wp["grip"] == "Closed":
                 robot.GripperClose()
-            if move_wait and move_wait > 0:
+            if move_wait > 0:
                 time.sleep(move_wait)
 
-    print("\n✅ Selected vial positions complete (robot remains connected).")
+    print("\n✅ Phase separation vial positions complete (robot remains connected).")

@@ -2,7 +2,8 @@
 from opcua import Server, ua
 from mecademicpy.robot import Robot
 import mecca_moves
-import mecca_moves_complete   # <--- new module for RunAll
+import mecca_moves_complete           # Particle imaging
+import mecca_moves_complete2          # Phase separation
 import subprocess
 import os
 import time
@@ -17,17 +18,25 @@ ROBOT_IP        = "192.168.0.100"
 
 SEQUENCE_FILE   = "sequences_dualmode.txt"
 
-# Movement & photo timing knobs for Run
+# Particle analysis (RunAll)
 MOVE_WAIT       = 2.0
-RUN_VECTOR      = [4, 0, 1, 2, 3, 4, 5, 6, 4, 3, 1, 0, 4]
-
+RUN_VECTOR      = []
 PHOTO_PREP_SEQ  = [5]
-PHOTO_PREP_WAIT = 2.45
+PHOTO_PREP_WAIT = 0.00
 PHOTO_SEQ       = [6]
-PHOTO_WAIT      = 1.20
+PHOTO_WAIT      = 10.00
+
+# Phase separation analysis (RunAllPhase)
+PHASE_RUN_VECTOR = mecca_moves_complete2.RUN_VECTOR
+PHASE_MOVE_WAIT  = mecca_moves_complete2.MOVE_WAIT
+PHASE_PHOTO_SEL  = mecca_moves_complete2.PHOTO_SEL
+PHASE_PHOTO_WAIT = mecca_moves_complete2.PHOTO_WAIT
+PHASE_VORTEX_SEQ = mecca_moves_complete2.VORTEX_SEQ
+PHASE_VORTEX_WAIT= mecca_moves_complete2.VORTEX_WAIT
 
 # Script to trigger after each photo
-POST_PHOTO_SCRIPT = "vialprogram1.py"
+POST_PHOTO_SCRIPT = "vialprogram1.py"      # for particles
+POST_PHOTO_SCRIPT_PHASE = "vialprogram2.py" # for phase separation
 # ==============================
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -122,49 +131,64 @@ def ua_Run(parent):
     _launch_job(_do)
     return None
 
-
 def ua_RunAll(parent, limit):
-    """Run using mecca_moves_complete (e.g. full grid)."""
+    """Run using mecca_moves_complete (particle analysis)."""
     def _do():
         sequences = mecca_moves_complete.load_sequences(SEQ_PATH)
-
         if not sequences:
             print("❌ No sequences loaded; aborting RunAll.")
             return
 
         try:
-            # ✅ unwrap Variant to plain int if needed
             max_pos = int(limit.Value if hasattr(limit, "Value") else limit)
-
         except Exception as e:
             print(f"⚠️ Could not parse limit: {e}")
             max_pos = None
-            print(f"🆕 No limit applied, running all positions")
 
+        # 🔥 Now just hand off — mecca_moves_complete handles its own timing vars
         mecca_moves_complete.run_sequences(
             robot=robot,
             sequences=sequences,
-            run_vector=mecca_moves_complete.RUN_VECTOR,
-            move_wait=mecca_moves_complete.MOVE_WAIT,
-            photo_prep_seq=mecca_moves_complete.PHOTO_PREP_SEQ,
-            photo_prep_wait=mecca_moves_complete.PHOTO_PREP_WAIT,
-            photo_seq=mecca_moves_complete.PHOTO_SEQ,
-            photo_wait=mecca_moves_complete.PHOTO_WAIT,
             camera_trigger=fire_camera,
             post_photo_script=POST_PHOTO_SCRIPT,
-            max_positions=max_pos   # ✅ limit applied
+            max_positions=max_pos
         )
-        print("✅ RunAll complete.")
-
+        print("✅ RunAll complete (particle analysis).")
     _launch_job(_do)
     return None
 
 
-# Register both methods
+def ua_RunAllPhase(parent, limit):
+    """Run using mecca_moves_complete2 (phase separation analysis)."""
+    def _do():
+        sequences = mecca_moves_complete2.load_sequences(SEQ_PATH)
+        if not sequences:
+            print("❌ No sequences loaded; aborting RunAllPhase.")
+            return
+
+        try:
+            max_pos = int(limit.Value if hasattr(limit, "Value") else limit)
+        except Exception as e:
+            print(f"⚠️ Could not parse limit: {e}")
+            max_pos = None
+
+        # 🔥 Just hand off — mecca_moves_complete2 owns its own waits/vars
+        mecca_moves_complete2.run_sequences(
+            robot=robot,
+            sequences=sequences,
+            camera_trigger=fire_camera,
+            post_photo_script=POST_PHOTO_SCRIPT_PHASE,
+            max_positions=max_pos
+        )
+        print("✅ RunAllPhase complete (phase separation).")
+    _launch_job(_do)
+    return None
+
+
+# Register all methods
 cell.add_method(idx, "Run", ua_Run, [], [])
-cell.add_method(idx, "RunAll", ua_RunAll,
-                [ua.VariantType.Int32],  # input argument (Int32)
-                [])
+cell.add_method(idx, "RunAll", ua_RunAll, [ua.VariantType.Int32], [])
+cell.add_method(idx, "RunAllPhase", ua_RunAllPhase, [ua.VariantType.Int32], [])
 
 if __name__ == "__main__":
     _robot_connect_once()
