@@ -1,7 +1,6 @@
 # opcua_camera_server.py
 from opcua import Server, ua
 from mecademicpy.robot import Robot
-import mecca_moves
 import mecca_moves_complete           # Particle imaging
 import mecca_moves_complete2          # Phase separation
 import subprocess
