@@ -12,7 +12,7 @@ OUTPUT_DIR = "image_process_output"
 LOG_FILE = os.path.join(OUTPUT_DIR, "phase_analysis_log.txt")
 
 # Thresholds
-BRIGHTNESS_THRESHOLD = 50.0   # above this = "high" brightness
+BRIGHTNESS_THRESHOLD = 10.0   # above this = "high" brightness
 # =============================
 
 

@@ -18,21 +18,6 @@ ROBOT_IP        = "192.168.0.100"
 
 SEQUENCE_FILE   = "sequences_dualmode.txt"
 
-# Particle analysis (RunAll)
-MOVE_WAIT       = 2.0
-RUN_VECTOR      = []
-PHOTO_PREP_SEQ  = [5]
-PHOTO_PREP_WAIT = 0.00
-PHOTO_SEQ       = [6]
-PHOTO_WAIT      = 10.00
-
-# Phase separation analysis (RunAllPhase)
-PHASE_RUN_VECTOR = mecca_moves_complete2.RUN_VECTOR
-PHASE_MOVE_WAIT  = mecca_moves_complete2.MOVE_WAIT
-PHASE_PHOTO_SEL  = mecca_moves_complete2.PHOTO_SEL
-PHASE_PHOTO_WAIT = mecca_moves_complete2.PHOTO_WAIT
-PHASE_VORTEX_SEQ = mecca_moves_complete2.VORTEX_SEQ
-PHASE_VORTEX_WAIT= mecca_moves_complete2.VORTEX_WAIT
 
 # Script to trigger after each photo
 POST_PHOTO_SCRIPT = "vialprogram1.py"      # for particles
@@ -107,30 +92,6 @@ def _launch_job(fn):
 
 # --- Methods exposed over OPC UA ---
 
-def ua_Run(parent):
-    """Run using mecca_moves (single-shot tuned version)."""
-    def _do():
-        sequences = mecca_moves.load_sequences(SEQ_PATH)
-        if not sequences:
-            print("❌ No sequences loaded; aborting run.")
-            return
-
-        mecca_moves.run_sequences(
-            robot=robot,
-            sequences=sequences,
-            run_vector=RUN_VECTOR,
-            move_wait=MOVE_WAIT,
-            photo_prep_seq=PHOTO_PREP_SEQ,
-            photo_prep_wait=PHOTO_PREP_WAIT,
-            photo_seq=PHOTO_SEQ,
-            photo_wait=PHOTO_WAIT,
-            camera_trigger=fire_camera,
-            post_photo_script=POST_PHOTO_SCRIPT,
-        )
-        print("✅ Run complete.")
-    _launch_job(_do)
-    return None
-
 def ua_RunAll(parent, limit):
     """Run using mecca_moves_complete (particle analysis)."""
     def _do():
@@ -186,7 +147,6 @@ def ua_RunAllPhase(parent, limit):
 
 
 # Register all methods
-cell.add_method(idx, "Run", ua_Run, [], [])
 cell.add_method(idx, "RunAll", ua_RunAll, [ua.VariantType.Int32], [])
 cell.add_method(idx, "RunAllPhase", ua_RunAllPhase, [ua.VariantType.Int32], [])
 
