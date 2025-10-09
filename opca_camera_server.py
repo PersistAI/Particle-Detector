@@ -13,7 +13,7 @@ import sys
 # USER SETTINGS
 # ==============================
 DIGICAM_CMD     = r"C:\Program Files (x86)\digiCamControl\CameraControlCmd.exe"
-ROBOT_IP        = "192.168.0.100"
+ROBOT_IP        = "192.168.1.100"
 
 SEQUENCE_FILE   = "sequences_dualmode.txt"
 
@@ -27,6 +27,29 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SAVE_DIR = os.path.join(BASE_DIR, "image_process_input")
 SEQ_PATH = os.path.join(BASE_DIR, SEQUENCE_FILE)
 os.makedirs(SAVE_DIR, exist_ok=True)
+
+DIGICAM_EXE = r"C:\Program Files (x86)\digiCamControl\CameraControl.exe"
+
+def ensure_digicam_running():
+    """Start DigiCamControl silently if not already running."""
+    try:
+        # Check if already running
+        tasks = subprocess.check_output('tasklist', creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)).decode()
+        if "CameraControl.exe" in tasks:
+            print("ℹ️ DigiCamControl already running.")
+            return
+
+        print("▶️ Starting DigiCamControl background service...")
+        subprocess.Popen(
+            [DIGICAM_EXE],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        )
+        time.sleep(3)  # give it a moment to initialize
+        print("✅ DigiCamControl started in background.")
+    except Exception as e:
+        print(f"❌ Failed to start DigiCamControl: {e}")
 
 # --- Camera trigger ---
 def fire_camera():
@@ -61,7 +84,7 @@ def _robot_connect_once():
     robot.ActivateRobot()
     robot.Home()
     robot.WaitHomed()
-    print("✅ Robot connected, homed, and held (persistent).")
+    print("✅ Robot connected.")
 
 # --- Background runner infra ---
 _run_lock = threading.Lock()
@@ -150,6 +173,7 @@ cell.add_method(idx, "RunAll", ua_RunAll, [ua.VariantType.Int32], [])
 cell.add_method(idx, "RunAllPhase", ua_RunAllPhase, [ua.VariantType.Int32], [])
 
 if __name__ == "__main__":
+    ensure_digicam_running()
     _robot_connect_once()
     server.start()
     print("✅ OPC UA server at opc.tcp://0.0.0.0:4840/nikon_server/")

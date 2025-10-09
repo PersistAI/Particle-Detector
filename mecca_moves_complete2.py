@@ -6,16 +6,16 @@ import sys
 # ==============================
 # Movement & photo timing knobs
 # ==============================
-MOVE_WAIT       = 2.0
-RUN_VECTOR      = [0, 2, 3, 4, 6, 4, 7, 8, 7, 4, 6, 4, 3, 1, 0]
+MOVE_WAIT       = 2.5
+RUN_VECTOR      = [0, 2, 3, 4, 6, 9, 7, 8, 7, 9, 6, 4, 3, 1, 0]
 
 PHOTO_SEL       = [6]    # sequences where photo is taken
-PHOTO_WAIT      = 4.0
+PHOTO_WAIT      = 0.0
 
 VORTEX_SEQ      = [8]    # vortex/shake sequences (NO photo here)
 VORTEX_WAIT     = 2.0
 
-extra_analysis_wait_time = 4.0
+extra_analysis_wait_time = 2.0
 
 # Grid layout
 ROWS            = 4       # A..D
@@ -31,6 +31,10 @@ SAFE_SEQ = 4  # set to None to disable
 # Example: {"A2": (0.5, -0.3), "D6": (-1.0, 0.2)}
 CUSTOM_OFFSETS = {"A2": (0.5, -0.4)}
 # ==============================
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+WATCH_DIR = os.path.join(BASE_DIR, "image_process_input")  # adjust if needed
+PHOTO_TIMEOUT = 30  # seconds max to wait before giving up
 
 
 def _parse_value(tok):
@@ -209,24 +213,61 @@ def run_sequences(robot,
                 # 🟢 Key change: if this is a PHOTO_SEL sequence, trigger right after final waypoint
                 if key in photo_pose and i == len(seq["points"]) - 1:
                     print(f"📸 Photo {photos_taken + 1}/2 at {label} (Seq {key})")
+
+                    # 1️⃣ Make sure the folder exists before listing it
+                    os.makedirs(WATCH_DIR, exist_ok=True)
+
+                    # 2️⃣ Snapshot current files before capture
+                    try:
+                        before_files = set(os.listdir(WATCH_DIR))
+                    except Exception as e:
+                        print(f"⚠️ Could not list {WATCH_DIR}: {e}")
+                        before_files = set()
+
+                    # 3️⃣ Trigger camera
                     camera_trigger()
+
+                    # 4️⃣ Wait for new photo file to appear
+                    print(f"📸 Waiting for photo download (timeout {PHOTO_TIMEOUT}s)...")
+                    start_time = time.time()
+                    new_file = None
+                    while True:
+                        try:
+                            after_files = set(os.listdir(WATCH_DIR))
+                        except Exception as e:
+                            print(f"⚠️ Could not read {WATCH_DIR}: {e}")
+                            after_files = before_files
+
+                        new_files = after_files - before_files
+                        if new_files:
+                            new_file = list(new_files)[0]
+                            print(f"✅ Photo downloaded: {new_file}")
+                            break
+                        if time.time() - start_time > PHOTO_TIMEOUT:
+                            print("⚠️ Timeout waiting for photo download.")
+                            break
+                        time.sleep(0.5)
+
+                    # 5️⃣ Optional short wait after confirmed download
                     if photo_wait > 0:
-                        print(f"⏸️ Holding {photo_wait}s at Seq {key} for camera")
+                        print(f"⏸️ Extra {photo_wait}s wait at Seq {key} (post-download)")
                         time.sleep(photo_wait)
+
                     photos_taken += 1
+
 
                     # Run analysis after the second photo
                     if photos_taken == 2:
-                        print("⏳ Extra wait before analysis to ensure file saved...")
-                        time.sleep(2.0)  # safety buffer
-                        if post_photo_script:
-                            try:
-                                script_path = os.path.join(os.path.dirname(__file__), post_photo_script)
-                                print(f"▶️ Launching {post_photo_script} for {label} ...")
-                                subprocess.Popen([sys.executable, script_path, label])
-                            except Exception as e:
-                                print(f"⚠️ Failed to launch {post_photo_script}: {e}")
-                        photos_taken = 0  # reset for next vial
+                       print(f"⏳ Waiting {extra_analysis_wait_time:.1f}s before analysis to ensure file saved...")
+                       time.sleep(extra_analysis_wait_time)  # safety buffer
+                       if post_photo_script:
+                           try:
+                               script_path = os.path.join(os.path.dirname(__file__), post_photo_script)
+                               print(f"▶️ Launching {post_photo_script} for {label} ...")
+                               subprocess.Popen([sys.executable, script_path, label])
+                           except Exception as e:
+                               print(f"⚠️ Failed to launch {post_photo_script}: {e}")
+                       photos_taken = 0  # reset for next vial
 
                 else:
                     # Normal MOVE_WAIT for non-photo steps

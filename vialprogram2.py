@@ -3,14 +3,20 @@ import numpy as np
 import os
 from datetime import datetime
 import sys
-
+import time
 # =============================
 # CONFIG
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 ROI = (2280, 3632, 1970, 5390)  # (y1, y2, x1, x2) for vial ROI
-INPUT_DIR = "image_process_input"
-OUTPUT_DIR = "image_process_output"
+
+INPUT_DIR = os.path.join(BASE_DIR, "image_process_input")
+OUTPUT_DIR = os.path.join(BASE_DIR, "image_process_output")
 LOG_FILE = os.path.join(OUTPUT_DIR, "phase_analysis_log.txt")
 
+# Make sure directories exist
+os.makedirs(INPUT_DIR, exist_ok=True)
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 # Thresholds
 BRIGHTNESS_THRESHOLD = 19.0   # above this = "high" brightness
 # =============================
@@ -41,11 +47,11 @@ def classify(b_before, b_after, vial_id):
     if before_state == "LOW" and after_state == "HIGH":
         return "Phase Separation"
     elif before_state == "LOW" and after_state == "LOW":
-        return "Nano Emulsion"
+        return "Soluable or Nano Emulsion"
     elif before_state == "HIGH" and after_state == "HIGH":
         return "Stable Emulsion"
     else:
-        return "Unclassified"
+        return "Unclassified: Possible Error"
 
 
 def annotate_image(img, brightness, label, roi):
@@ -57,15 +63,18 @@ def annotate_image(img, brightness, label, roi):
                 cv2.FONT_HERSHEY_SIMPLEX, 2.0, (0, 255, 0), 4)
     return annotated
 
-
 def compare_vials(before_img_path, after_img_path, vial_id="Unknown"):
     """Compare brightness of before vs after vial images"""
     img_before = cv2.imread(before_img_path)
     img_after = cv2.imread(after_img_path)
 
     if img_before is None or img_after is None:
-        print(f"Error: Could not load {before_img_path} or {after_img_path}")
-        return None
+        print(f"❌ Could not load images for {vial_id}, logging FAILED.")
+
+        ensure_dir(OUTPUT_DIR)
+        with open(LOG_FILE, "a") as log:
+            log.write(f"{datetime.now()} - Vial {vial_id}: Before=NA, After=NA, Result=FAILED (missing image)\n")
+        return "FAILED"
 
     roi_before = crop_roi(img_before, ROI)
     roi_after = crop_roi(img_after, ROI)
@@ -83,8 +92,9 @@ def compare_vials(before_img_path, after_img_path, vial_id="Unknown"):
     ensure_dir(OUTPUT_DIR)
     out_before = os.path.join(OUTPUT_DIR, f"{vial_id}_before_{result}.jpg")
     out_after = os.path.join(OUTPUT_DIR, f"{vial_id}_after_{result}.jpg")
-    cv2.imwrite(out_before, ann_before)
-    cv2.imwrite(out_after, ann_after)
+    ok1 = cv2.imwrite(out_before, ann_before)
+    ok2 = cv2.imwrite(out_after, ann_after)
+    # print(f"Saved before={ok1}, after={ok2} → {OUTPUT_DIR}")
 
     # Log
     with open(LOG_FILE, "a") as log:
@@ -99,22 +109,30 @@ def compare_vials(before_img_path, after_img_path, vial_id="Unknown"):
 
 
 def batch_process(vial_label=None):
-    """Process pairs of images in folder and then delete them"""
+    """Process exactly two images in folder. If not exactly two, log FAILED."""
     files = sorted([f for f in os.listdir(INPUT_DIR) if f.lower().endswith((".jpg", ".png", ".jpeg"))])
-    pairs = [(files[i], files[i+1]) for i in range(0, len(files), 2)]
 
-    for idx, (before, after) in enumerate(pairs):
-        before_path = os.path.join(INPUT_DIR, before)
-        after_path = os.path.join(INPUT_DIR, after)
+    # Use passed-in vial label if provided, else fallback to A1
+    vial_id = vial_label if vial_label else "A1"
 
-        # Use passed-in vial label if provided, else fallback to A1, A2...
-        vial_id = vial_label if vial_label else f"A{idx+1}"
+    if len(files) != 2:
+        print(f"❌ Expected 2 images, found {len(files)}. Logging FAILED for {vial_id}.")
 
-        compare_vials(before_path, after_path, vial_id=vial_id)
+        for f in files:
+            os.remove(os.path.join(INPUT_DIR, f))
 
-        # Delete files after processing
-        os.remove(before_path)
-        os.remove(after_path)
+        ensure_dir(OUTPUT_DIR)
+        with open(LOG_FILE, "a") as log:
+            log.write(f"{datetime.now()} - Vial {vial_id}: Before=NA, After=NA, Result=FAILED (wrong count)\n")
+        return
+
+    before_path = os.path.join(INPUT_DIR, files[0])
+    after_path = os.path.join(INPUT_DIR, files[1])
+
+    compare_vials(before_path, after_path, vial_id=vial_id)
+    time.sleep(2) 
+    os.remove(before_path)
+    os.remove(after_path)
 
 
 if __name__ == "__main__":

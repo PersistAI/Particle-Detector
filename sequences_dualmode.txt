@@ -20,11 +20,11 @@ TYPE=joints, J1=-95.000, J2=-59.000, J3=57.000, J4=0.000, J5=0.000, J6=-0.000, G
 TYPE=joints, J1=-90.000, J2=-59.000, J3=57.000, J4=0.000, J5=0.000, J6=0.000, Gripper=Closed
 
 ==== SEQUENCE 7 (Sequence 7) ====
-TYPE=joints, J1=58.149, J2=4.532, J3=-1.338, J4=-0.000, J5=86.806, J6=15.149, Gripper=Unknown
+TYPE=cartesian, X=-138.249, Y=-57.415, Z=230.833, α=180.000, β=-0.000, γ=-8.137, Gripper=Closed
 
 ==== SEQUENCE 8 (Sequence 8) ====
-TYPE=cartesian, X=69.974, Y=112.632, Z=160.833, α=-180.000, β=0.000, γ=137.000, Gripper=Unknown
+TYPE=cartesian, X=-138.249, Y=-57.415, Z=193.833, α=180.000, β=-0.000, γ=-8.137, Gripper=Closed
 
 ==== SEQUENCE 9 (Sequence 9) ====
-TYPE=joints, J1=-144.000, J2=24.500, J3=41.000, J4=-0.000, J5=-59.000, J6=0.000, Gripper=Unknown
+TYPE=joints, J1=-125.663, J2=-17.249, J3=-22.558, J4=1.273, J5=90.701, J6=-0.867, Gripper=Unknown
 

@@ -29,6 +29,7 @@ SAFE_SEQ = 4  # set to None to disable
 CUSTOM_OFFSETS = {"A2": (0.5, -0.4)}
 # ==============================
 
+
 def _parse_value(tok):
     try:
         return float(tok.split("=")[1])
@@ -142,7 +143,6 @@ def run_sequences(robot,
     Run through vial positions defined by ROWS×COLS grid.
     Use `max_positions` to limit how many vial spots to analyze.
     """
-
     grid = generate_grid_sequences(sequences)
 
     # 🆕 Apply position limit if provided

@@ -5,7 +5,7 @@ from mecademicpy.robot import Robot
 
 # =====================
 # CONFIG
-ROBOT_IP = "192.168.0.100"   # Replace with your robot's IP
+ROBOT_IP = "192.168.1.100"   # Replace with your robot's IP
 BASE_MM  = 1.0               # Base linear step size (mm)
 BASE_DEG = 1.0               # Base angular/joint step size (deg)
 DELAY    = 0.1               # Debounce time for jogging
