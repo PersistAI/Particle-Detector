@@ -301,10 +301,10 @@ def main():
         marked_frames = create_individual_frame_markings(images, static_particles, moving_particles)
         print(f"\nSaving individual frame markings:")
         for i, (marked_frame, original_file) in enumerate(zip(marked_frames, valid_files)):
-            original_name = os.path.splitext(os.path.basename(original_file))[0]
-            frame_filename = f"{vial_id}_Frame{i+1:02d}_{original_name}_marked.jpg"
+            frame_filename = f"{vial_label}_Frame{i+1:02d}.jpg"
             frame_path = os.path.join(OUTPUT_FOLDER, frame_filename)
             cv2.imwrite(frame_path, marked_frame)
+
             print(f"  Frame {i+1}: {frame_filename}")
     log_filename = "particle_detection_log.txt"
     log_path = os.path.join(OUTPUT_FOLDER, log_filename)

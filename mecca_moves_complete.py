@@ -29,6 +29,10 @@ SAFE_SEQ = 4  # set to None to disable
 CUSTOM_OFFSETS = {"A2": (0.5, -0.4)}
 # ==============================
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+WATCH_DIR = os.path.join(BASE_DIR, "image_process_input")  # adjust if needed
+PHOTO_TIMEOUT = 30  # seconds max to wait before giving up
 
 def _parse_value(tok):
     try:
@@ -207,9 +211,45 @@ def run_sequences(robot,
                     time.sleep(photo_prep_wait)
 
             if key in photo_pose:
+                print(f"📸 [PhotoPose] Sequence {key} reached — waiting for burst download...")
+
+                # --- Make sure photo directory exists ---
+                os.makedirs(WATCH_DIR, exist_ok=True)
+
+                # --- Snapshot current files before waiting ---
+                try:
+                    before_files = set(os.listdir(WATCH_DIR))
+                except Exception as e:
+                    print(f"⚠️ Could not list {WATCH_DIR}: {e}")
+                    before_files = set()
+
+                # --- Wait for 4 new photos to appear ---
+                print(f"📸 Waiting for 4 new photos (timeout {PHOTO_TIMEOUT}s)...")
+                start_time = time.time()
+                new_files = set()
+                while True:
+                    try:
+                        after_files = set(os.listdir(WATCH_DIR))
+                    except Exception as e:
+                        print(f"⚠️ Could not read {WATCH_DIR}: {e}")
+                        after_files = before_files
+
+                    new_files = after_files - before_files
+                    if len(new_files) >= 4:
+                        print(f"✅ 4 new photos detected: {', '.join(list(new_files)[:4])}")
+                        break
+
+                    if time.time() - start_time > PHOTO_TIMEOUT:
+                        print(f"⚠️ Timeout waiting for 4 photos — only {len(new_files)} found.")
+                        break
+                    time.sleep(0.5)
+
+                # --- Optional hold time after confirmation ---
                 if photo_wait and photo_wait > 0:
-                    print(f"📸 [PhotoPose] Holding at Sequence {key} for {photo_wait}s")
+                    print(f"⏸️ [PhotoPose] Holding {photo_wait}s after 4-photo burst")
                     time.sleep(photo_wait)
+
+                # --- Launch post-analysis script ---
                 if post_photo_script:
                     try:
                         script_path = os.path.join(os.path.dirname(__file__), post_photo_script)
@@ -217,6 +257,7 @@ def run_sequences(robot,
                         subprocess.Popen([sys.executable, script_path, label])
                     except Exception as e:
                         print(f"⚠️ Failed to launch {post_photo_script}: {e}")
+
 
 
         print(f"=== ✅ Finished vial position {label} ===")
