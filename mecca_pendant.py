@@ -302,22 +302,30 @@ def main():
                     print("Recorded JOINTS:", print_state_joints(joints, gripper_state))
                 time.sleep(0.3)
 
-            # --- Assign sequence ---
+            # --- Assign sequence (normal 0–9, or Shift+NumPad → 10–19) ---
             for key in range(10):
                 if keyboard.is_pressed(f"num {key}") and current_sequence:
-                    seq_name=f"Sequence {key}"
-                    sequences[key]={"name":seq_name,"points":list(current_sequence)}
-                    print(f"Sequence {key} saved with {len(current_sequence)} points.")
+                    shift_held = keyboard.is_pressed("shift")
+                    seq_index = key + (10 if shift_held else 0)
+                    seq_name = f"Sequence {seq_index}"
+                    sequences[seq_index] = {"name": seq_name, "points": list(current_sequence)}
+                    print(f"💾 Sequence {seq_name} saved with {len(current_sequence)} points (Shift held={shift_held}).")
                     save_sequences(sequences)
                     current_sequence.clear()
                     time.sleep(0.5)
                     break
 
-            # --- Execute sequence ---
+            # --- Execute sequence (normal 0–9, or Shift+NumPad → 10–19) ---
             for key in range(10):
-                if keyboard.is_pressed(f"num {key}") and key in sequences and not current_sequence:
-                    execute_sequence_step(robot,sequences[key],key)
-                    time.sleep(0.5)
+                if keyboard.is_pressed(f"num {key}") and not current_sequence:
+                    shift_held = keyboard.is_pressed("shift")
+                    seq_index = key + (10 if shift_held else 0)
+                    if seq_index in sequences:
+                        print(f"▶ Executing Sequence {seq_index} (Shift held={shift_held})...")
+                        execute_sequence_step(robot, sequences[seq_index], key)  # keep key for actual hotkey display
+                        time.sleep(0.5)
+                        break
+
 
     except KeyboardInterrupt:
         print("Ctrl+C detected, stopping...")

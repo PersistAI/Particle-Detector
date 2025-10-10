@@ -6,7 +6,7 @@ import sys
 # ==============================
 # Movement & photo timing knobs
 # ==============================
-MOVE_WAIT       = 2.5
+MOVE_WAIT       = 1.5
 RUN_VECTOR      = [0, 2, 3, 4, 6, 9, 7, 8, 7, 9, 6, 4, 3, 1, 0]
 
 PHOTO_SEL       = [6]    # sequences where photo is taken
@@ -15,7 +15,7 @@ PHOTO_WAIT      = 0.0
 VORTEX_SEQ      = [8]    # vortex/shake sequences (NO photo here)
 VORTEX_WAIT     = 2.0
 
-extra_analysis_wait_time = 2.0
+extra_analysis_wait_time = 0.0
 
 # Grid layout
 ROWS            = 4       # A..D
