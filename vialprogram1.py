@@ -17,7 +17,6 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # Paths relative to script location
 INPUT_PATH = os.path.join(BASE_DIR, "image_process_input", "*.jpg")
 OUTPUT_FOLDER = os.path.join(BASE_DIR, "image_process_output")
-ARCHIVE_FOLDER = os.path.join(BASE_DIR, "image_process_archive")
 
 #Sensitivity values
 MIN_AREA = 3                    # Minimum blob area in pixels
@@ -266,7 +265,6 @@ def main():
     for f in all_files:
         print(f"  - {os.path.basename(f)}")
     os.makedirs(OUTPUT_FOLDER, exist_ok=True)
-    os.makedirs(ARCHIVE_FOLDER, exist_ok=True)
     vial_groups = group_images_by_vial(all_files)
     vial_id = list(vial_groups.keys())[0]
     files = vial_groups[vial_id]
@@ -337,15 +335,14 @@ Files Processed:
     with open(log_path, 'a', encoding='utf-8') as log_file:
         log_file.write(log_entry)
     print(f"\nLog entry added to: {log_filename}")
-    # ✅ Move input images to archive
-    print("\nArchiving input images...")
+    # ✅ CLean up input
+    print("\nDeleting input images...")
     for f in files:
         try:
-            dest = os.path.join(ARCHIVE_FOLDER, os.path.basename(f))
-            shutil.move(f, dest)
-            print(f"  Moved: {os.path.basename(f)}")
+            os.remove(f)
+            print(f"  Deleted: {os.path.basename(f)}")
         except Exception as e:
-            print(f"  Could not move {f}: {e}")
+            print(f"  Could not delete {f}: {e}")
     print(f"\n{'='*60}")
     print("ANALYSIS COMPLETE")
     print(f"{'='*60}")
@@ -353,7 +350,6 @@ Files Processed:
     print(f"Moving particles detected: {analysis['moving_count']}")
     print(f"Static artifacts detected: {analysis['static_count']}")
     print(f"All results saved to: {OUTPUT_FOLDER}")
-    print(f"Raw images archived to: {ARCHIVE_FOLDER}")
     print(f"Check the log file for historical records: {log_filename}")
 
 if __name__ == "__main__":
