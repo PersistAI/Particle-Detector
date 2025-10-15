@@ -7,8 +7,8 @@ import sys
 # Movement & photo timing knobs
 # ==============================
 MOVE_WAIT       = 1.5
-RUN_VECTOR      = [0, 2, 3, 4, 6, 9, 7, 8, 7, 9, 6, 4, 3, 1, 0]
-
+RUN_VECTOR      = [0, 2, 3, 4, 6, 4, 15, 4, 15, 4, 15, 4, 15, 4, 15, 4, 6, 4, 3, 1, 0] #this one is using inversion
+# RUN_VECTOR      = [0, 2, 3, 4, 6, 9, 7, 8, 7, 9, 6, 4, 3, 1, 0]  #this is the one using vortex
 PHOTO_SEL       = [6]    # sequences where photo is taken
 PHOTO_WAIT      = 0.0
 
