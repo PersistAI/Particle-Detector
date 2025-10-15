@@ -8,6 +8,7 @@ import os
 import time
 import threading
 import sys
+from pywinauto.application import Application
 
 # ==============================
 # USER SETTINGS
@@ -51,6 +52,22 @@ def ensure_digicam_running():
     except Exception as e:
         print(f"❌ Failed to start DigiCamControl: {e}")
 
+
+def set_digicam_burst(value: str):
+    """
+    Force DigiCamControl's Burst dropdown to a given value (e.g. "1", "4").
+    Assumes DigiCamControl is already running.
+    """
+    try:
+        app = Application(backend="uia").connect(title_re=".*digiCamControl.*")
+        dlg = app.window(title_re=".*digiCamControl.*")
+        burst_dropdown = dlg.child_window(title="Burst", control_type="ComboBox")
+
+        burst_dropdown.select(value)
+        print(f"🎯 [DigiCam] Burst mode set to {value}")
+        time.sleep(0.5)  # small pause for UI update
+    except Exception as e:
+        print(f"⚠️ [DigiCam] Could not set burst mode: {e}")
 # --- Camera trigger ---
 def fire_camera():
     try:
@@ -127,7 +144,11 @@ def ua_RunAll(parent, limit):
         except Exception as e:
             print(f"⚠️ Could not parse limit: {e}")
             max_pos = None
-
+            
+        # Set burst mode for this run
+        print("🛠 Setting DigiCamControl burst to 4 (RunAll - particle mode)...")
+        set_digicam_burst("4")
+        
         # 🔥 Now just hand off — mecca_moves_complete handles its own timing vars
         mecca_moves_complete.run_sequences(
             robot=robot,
@@ -154,7 +175,11 @@ def ua_RunAllPhase(parent, limit):
         except Exception as e:
             print(f"⚠️ Could not parse limit: {e}")
             max_pos = None
-
+            
+        # Set burst mode for this run
+        print("🛠 Setting DigiCamControl burst to 1 (RunAllPhase - phase separation)...")
+        #set_digicam_burst("1")
+        
         # 🔥 Just hand off — mecca_moves_complete2 owns its own waits/vars
         mecca_moves_complete2.run_sequences(
             robot=robot,

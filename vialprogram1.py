@@ -7,6 +7,8 @@ import re
 import shutil
 from datetime import datetime
 import sys
+import json
+
 vial_label = sys.argv[1] if len(sys.argv) > 1 else "Unknown"
 # ==============================
 # USER SETTINGS
@@ -332,9 +334,23 @@ Files Processed:
         original_name = os.path.splitext(os.path.basename(original_file))[0]
         frame_filename = f"{vial_id}_{original_name}_marked.jpg"
         log_entry += f"  - {frame_filename}\n"
+    # Convert key results into JSON-style line (appendable)
+    entry = {
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "vial_id": vial_label,
+        "images_analyzed": len(files),
+        "result": status.replace("✅ ", "").replace("❌ ", ""),
+        "moving_particles": analysis['moving_count'],
+        "static_artifacts": analysis['static_count'],
+        "output_main": main_result_filename
+    }
+
     with open(log_path, 'a', encoding='utf-8') as log_file:
-        log_file.write(log_entry)
-    print(f"\nLog entry added to: {log_filename}")
+        json.dump(entry, log_file)
+        log_file.write("\n")  # ensures each run is on its own line
+
+    print(f"\nJSON-style log entry added to: {log_filename}")
+
     # ✅ CLean up input
     print("\nDeleting input images...")
     for f in files:

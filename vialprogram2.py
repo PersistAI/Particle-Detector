@@ -4,6 +4,7 @@ import os
 from datetime import datetime
 import sys
 import time
+import json
 # =============================
 # CONFIG
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -18,7 +19,7 @@ LOG_FILE = os.path.join(OUTPUT_DIR, "phase_analysis_log.txt")
 os.makedirs(INPUT_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 # Thresholds
-BRIGHTNESS_THRESHOLD = 19.0   # above this = "high" brightness
+BRIGHTNESS_THRESHOLD = 25.0   # above this = "high" brightness
 # =============================
 
 
@@ -40,16 +41,26 @@ def analyze_brightness(img):
 
 
 def classify(b_before, b_after, vial_id):
-    """Classify outcome based on brightness thresholds"""
+    """Classify outcome based on brightness thresholds and change in brightness"""
     before_state = "HIGH" if b_before > BRIGHTNESS_THRESHOLD else "LOW"
     after_state = "HIGH" if b_after > BRIGHTNESS_THRESHOLD else "LOW"
+
+    # Determine relative brightness change (delta ratio)
+    if b_before > 0:
+        change_ratio = (b_after - b_before) / b_before
+    else:
+        change_ratio = 0
 
     if before_state == "LOW" and after_state == "HIGH":
         return "Phase Separation"
     elif before_state == "LOW" and after_state == "LOW":
-        return "Soluable or Nano Emulsion"
+        return "Soluble or Nano Emulsion"
     elif before_state == "HIGH" and after_state == "HIGH":
-        return "Stable Emulsion"
+        # ✅ Check if brightness increased ≥ 50%
+        if change_ratio >= 0.5:
+            return "Partially Stable Emulsion"
+        else:
+            return "Stable Emulsion"
     else:
         return "Unclassified: Possible Error"
 
@@ -97,10 +108,17 @@ def compare_vials(before_img_path, after_img_path, vial_id="Unknown"):
     # print(f"Saved before={ok1}, after={ok2} → {OUTPUT_DIR}")
 
     # Log
-    with open(LOG_FILE, "a") as log:
-        log.write(f"{datetime.now()} - Vial {vial_id}: "
-                  f"Before={b_brightness:.1f}, After={a_brightness:.1f}, "
-                  f"Result={result}\n")
+    entry = {
+    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    "vial_id": vial_id,
+    "before_brightness": round(b_brightness, 2),
+    "after_brightness": round(a_brightness, 2),
+    "classification": result
+    }
+    with open(LOG_FILE, "a", encoding="utf-8") as log:
+        json.dump(entry, log)
+        log.write("\n")
+
 
     print(f"Vial {vial_id}: {result}")
     print(f"  Before={b_brightness:.1f}, After={a_brightness:.1f}")
