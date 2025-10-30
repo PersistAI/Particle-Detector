@@ -2,6 +2,7 @@ import keyboard
 import time
 import os
 from mecademicpy.robot import Robot
+import sys 
 
 # =====================
 # CONFIG
@@ -12,7 +13,81 @@ DELAY    = 0.1               # Debounce time for jogging
 SEQUENCE_FILE = "sequences_dualmode.txt"
 # =====================
 
+if sys.platform == 'win32':
+    import ctypes
 
+def is_console_focused():
+    """Check if the console window has focus (Windows only)."""
+    if sys.platform != 'win32':
+        return True
+    
+    try:
+        # Get the window that currently has focus
+        hwnd = ctypes.windll.user32.GetForegroundWindow()
+        console_hwnd = ctypes.windll.kernel32.GetConsoleWindow()
+        
+        # Method 1: Direct console match
+        if hwnd == console_hwnd and console_hwnd != 0:
+            return True
+        
+        # Method 2: Check window title
+        length = ctypes.windll.user32.GetWindowTextLengthW(hwnd)
+        buff = ctypes.create_unicode_buffer(length + 1)
+        ctypes.windll.user32.GetWindowTextW(hwnd, buff, length + 1)
+        title = buff.value.lower()
+        
+        # Match console/python windows (including py.exe for double-clicked scripts)
+        console_keywords = ["command prompt", "python", "cmd", "powershell", "py.exe", "python.exe"]
+        if any(word in title for word in console_keywords):
+            # Exclude false positives (browsers, editors)
+            exclude_keywords = ["edge", "chrome", "firefox", "notepad", "browser"]
+            if not any(word in title for word in exclude_keywords):
+                return True
+        
+        return False
+        
+    except Exception as e:
+        return True  # If check fails, assume focused for safety
+
+
+    """Check if Python/console window has focus."""
+    if sys.platform != 'win32':
+        return True
+    
+    try:
+        # Get the window that currently has focus
+        hwnd = ctypes.windll.user32.GetForegroundWindow()
+        console_hwnd = ctypes.windll.kernel32.GetConsoleWindow()
+        
+        # Get process ID of focused window
+        pid = ctypes.c_ulong()
+        ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+        
+        # Get window title
+        length = ctypes.windll.user32.GetWindowTextLengthW(hwnd)
+        buff = ctypes.create_unicode_buffer(length + 1)
+        ctypes.windll.user32.GetWindowTextW(hwnd, buff, length + 1)
+        title = buff.value
+        
+        # PRINT EVERYTHING so we can see what's happening
+        print(f"DEBUG: Focused window='{title}' (handle={hwnd}, pid={pid.value})")
+        print(f"DEBUG: Console handle={console_hwnd}, Python PID={os.getpid()}")
+        
+        # Check all methods
+        method1 = (hwnd == console_hwnd and console_hwnd != 0)
+        method2 = (pid.value == os.getpid())
+        method3 = any(word in title.lower() for word in ["python", "cmd", "powershell", "terminal", "mecca"])
+        
+        print(f"DEBUG: Method1(console)={method1}, Method2(pid)={method2}, Method3(title)={method3}")
+        
+        result = method1 or method2 or method3
+        print(f"DEBUG: RESULT = {result}\n")
+        
+        return result
+        
+    except Exception as e:
+        print(f"ERROR: {e}")
+        return True      
 def print_state_cart(pose, gripper_state, speed_scale=None):
     labels = ["X", "Y", "Z", "α", "β", "γ"]
     vec = ", ".join([f"{labels[i]}={pose[i]:.2f}" for i in range(6)])
@@ -102,7 +177,7 @@ def load_sequences():
     if current_key is not None:
         sequences[current_key] = {"name": current_name, "points": current_points}
 
-    print(f"Loaded {len(sequences)} sequences from {SEQUENCE_FILE}")
+    print(f"\n[=====--] Loaded {len(sequences)} sequences from {SEQUENCE_FILE}")
     return sequences
 
 
@@ -145,17 +220,24 @@ def execute_sequence_step(robot, seq, key):
             idx += 1
             time.sleep(0.5)
     print(f"Sequence {key} complete.\n")
+    robot.WaitIdle() 
+    current_joints = robot.GetJoints()
+    current_pose = get_valid_pose(robot)
+    return current_joints, current_pose
 
 
 def main():
     robot = Robot()
     robot.Connect(ROBOT_IP)
+    print("\n[=------] Connecting to Mecademic robot")
     robot.WaitConnected()
 
-    print("Connected to Mecademic robot.")
+    print("\n[==-----] Connected to Mecademic robot")
     robot.ActivateRobot()
     robot.Home()
+    print("\n[===----] Homing Robot")
     robot.WaitHomed()
+    print("\n[====---] Robot Homed")
 
     mode = "joints"
     current_joints = [0.0]*6
@@ -166,12 +248,16 @@ def main():
     current_sequence = []
 
     try:
-        print("Moving to ABSOLUTE joint zero [0,0,0,0,0,0] ...")
-        robot.MoveJoints(*current_joints)
+        print("\n[======-] Getting Current Position ===")
+        current_joints = robot.GetJoints()
+        current_pose = get_valid_pose(robot)
+        print("\n[=======] Current Position Obtained")
+
     except Exception as e:
         print(f"⚠️ Could not move to joint zero: {e}")
         current_joints = robot.GetJoints()
 
+    print("\n[ROBOT INITIALIZED]")
     print("\n=== Controls ===")
     print("Mode toggle: Spacebar  (cartesian ⇄ joints)")
     print("Reset: Backspace (ResetError + ResumeMotion + resync)")
@@ -188,7 +274,25 @@ def main():
     print("================\n")
 
     try:
+        print("\n⚠️ SAFETY: Controls only work when Python window is focused!")
+        print("Click on this window to enable.\n")
+        
+        last_focus_state = None
+        
         while True:
+            focused = is_console_focused()
+            
+            if focused != last_focus_state:
+                if focused:
+                    print("✅ CONTROLS ACTIVE")
+                else:
+                    print("🔒 CONTROLS DISABLED - Click Python window to enable")
+                last_focus_state = focused
+            
+            if not focused:
+                time.sleep(0.1)
+                continue
+                
             moved = False
 
             # --- Reset ---
@@ -322,7 +426,7 @@ def main():
                     seq_index = key + (10 if shift_held else 0)
                     if seq_index in sequences:
                         print(f"▶ Executing Sequence {seq_index} (Shift held={shift_held})...")
-                        execute_sequence_step(robot, sequences[seq_index], key)  # keep key for actual hotkey display
+                        current_joints, current_pose = execute_sequence_step(robot, sequences[seq_index], key) # keep key for actual hotkey display
                         time.sleep(0.5)
                         break
 

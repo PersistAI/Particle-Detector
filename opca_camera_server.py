@@ -1,8 +1,11 @@
 # opcua_camera_server.py
 from opcua import Server, ua
 from mecademicpy.robot import Robot
+
 import mecca_moves_complete           # Particle imaging
 import mecca_moves_complete2          # Phase separation
+import mecca_moves_complete3          # Filter handling
+
 import subprocess
 import os
 import time
@@ -174,6 +177,7 @@ def ua_RunAllPhase(parent, limit):
 # Register all methods
 cell.add_method(idx, "RunAll", ua_RunAll, [ua.VariantType.Int32], [])
 cell.add_method(idx, "RunAllPhase", ua_RunAllPhase, [ua.VariantType.Int32], [])
+
 
 if __name__ == "__main__":
     ensure_digicam_running()

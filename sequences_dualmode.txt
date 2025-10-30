@@ -20,7 +20,7 @@ TYPE=joints, J1=-95.000, J2=-59.000, J3=57.000, J4=0.000, J5=0.000, J6=-0.000, G
 TYPE=joints, J1=-90.000, J2=-59.000, J3=57.000, J4=0.000, J5=0.000, J6=0.000, Gripper=Closed
 
 ==== SEQUENCE 7 (Sequence 7) ====
-TYPE=cartesian, X=-138.249, Y=-57.415, Z=230.833, α=180.000, β=-0.000, γ=-8.137, Gripper=Closed
+TYPE=joints, J1=-157.447, J2=14.936, J3=-21.463, J4=0.000, J5=96.528, J6=14.416, Gripper=Closed
 
 ==== SEQUENCE 8 (Sequence 8) ====
 TYPE=cartesian, X=-138.249, Y=-57.415, Z=194.833, α=180.000, β=-0.000, γ=-8.137, Gripper=Closed
@@ -29,16 +29,16 @@ TYPE=cartesian, X=-138.249, Y=-57.415, Z=194.833, α=180.000, β=-0.000, γ=-8.1
 TYPE=joints, J1=-125.663, J2=-17.249, J3=-22.558, J4=1.273, J5=90.701, J6=-0.867, Gripper=Closed
 
 ==== SEQUENCE 10 (Sequence 10) ====
-TYPE=joints, J1=-28.663, J2=-17.249, J3=-22.558, J4=1.273, J5=38.701, J6=-0.867, Gripper=Closed
+TYPE=cartesian, X=27.986, Y=87.169, Z=181.950, α=-180.000, β=0.000, γ=48.000, Gripper=Open
 
 ==== SEQUENCE 11 (Sequence 11) ====
-TYPE=joints, J1=-28.663, J2=-17.249, J3=-22.558, J4=1.273, J5=90.701, J6=-0.867, Gripper=Closed
+TYPE=cartesian, X=27.986, Y=86.169, Z=138.950, α=-180.000, β=-0.000, γ=48.000, Gripper=Open
 
 ==== SEQUENCE 12 (Sequence 12) ====
-TYPE=joints, J1=-28.663, J2=-17.249, J3=-22.558, J4=1.273, J5=90.701, J6=-0.867, Gripper=Closed
+TYPE=cartesian, X=27.986, Y=86.169, Z=138.950, α=180.000, β=0.000, γ=48.000, Gripper=Closed
 
 ==== SEQUENCE 13 (Sequence 13) ====
-TYPE=joints, J1=-28.663, J2=-17.249, J3=-22.558, J4=1.273, J5=90.701, J6=-0.867, Gripper=Closed
+TYPE=cartesian, X=27.986, Y=86.169, Z=185.950, α=180.000, β=-0.000, γ=48.000, Gripper=Closed
 
 ==== SEQUENCE 14 (Sequence 14) ====
 TYPE=joints, J1=-28.663, J2=-17.249, J3=-22.558, J4=1.273, J5=90.701, J6=-0.867, Gripper=Closed
@@ -47,7 +47,7 @@ TYPE=joints, J1=-28.663, J2=-17.249, J3=-22.558, J4=1.273, J5=90.701, J6=-0.867,
 TYPE=joints, J1=-28.663, J2=-21.249, J3=-45.558, J4=1.273, J5=37.701, J6=-0.867, Gripper=Closed
 
 ==== SEQUENCE 16 (Sequence 16) ====
-TYPE=joints, J1=-28.663, J2=-17.249, J3=-22.558, J4=1.273, J5=90.701, J6=-0.867, Gripper=Closed
+TYPE=joints, J1=-89.997, J2=-51.244, J3=35.580, J4=-0.006, J5=25.664, J6=0.007, Gripper=Closed
 
 ==== SEQUENCE 17 (Sequence 17) ====
 TYPE=joints, J1=-28.663, J2=-17.249, J3=-22.558, J4=1.273, J5=90.701, J6=-0.867, Gripper=Closed
@@ -57,3 +57,4 @@ TYPE=joints, J1=-28.663, J2=-17.249, J3=-22.558, J4=1.273, J5=90.701, J6=-0.867,
 
 ==== SEQUENCE 19 (Sequence 19) ====
 TYPE=joints, J1=-28.663, J2=-17.249, J3=-22.558, J4=1.273, J5=90.701, J6=-0.867, Gripper=Closed
+
