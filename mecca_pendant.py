@@ -177,7 +177,7 @@ def load_sequences():
     if current_key is not None:
         sequences[current_key] = {"name": current_name, "points": current_points}
 
-    print(f"\n[=====--] Loaded {len(sequences)} sequences from {SEQUENCE_FILE}")
+    print(f"[=====--] Loaded {len(sequences)} sequences from {SEQUENCE_FILE}                                                         ", end='\r', flush=True)
     return sequences
 
 
@@ -229,15 +229,18 @@ def execute_sequence_step(robot, seq, key):
 def main():
     robot = Robot()
     robot.Connect(ROBOT_IP)
-    print("\n[=------] Connecting to Mecademic robot")
+    print("[=------] Connecting to Mecademic robot                                                         ", end='\r', flush=True)
+    time.sleep(1.5)
     robot.WaitConnected()
 
-    print("\n[==-----] Connected to Mecademic robot")
+    print("[==-----] Connected to Mecademic robot                                                         ", end='\r', flush=True)
     robot.ActivateRobot()
     robot.Home()
-    print("\n[===----] Homing Robot")
+    print("[===----] Homing Robot                                                         ", end='\r', flush=True)
+    time.sleep(1.5)
     robot.WaitHomed()
-    print("\n[====---] Robot Homed")
+    print("[====---] Robot Homed                                                         ", end='\r', flush=True)
+    time.sleep(1.5)
 
     mode = "joints"
     current_joints = [0.0]*6
@@ -248,30 +251,19 @@ def main():
     current_sequence = []
 
     try:
-        print("\n[======-] Getting Current Position ===")
+        print("[======-] Getting Current Position                                                         ", end='\r', flush=True)
+        time.sleep(1.5)
         current_joints = robot.GetJoints()
         current_pose = get_valid_pose(robot)
-        print("\n[=======] Current Position Obtained")
+        print("[=======] Current Position Obtained                                                         ", end='\r', flush=True)
+        time.sleep(1.5)
 
     except Exception as e:
         print(f"⚠️ Could not move to joint zero: {e}")
         current_joints = robot.GetJoints()
 
-    print("\n[ROBOT INITIALIZED]")
-    print("\n=== Controls ===")
-    print("Mode toggle: Spacebar  (cartesian ⇄ joints)")
-    print("Reset: Backspace (ResetError + ResumeMotion + resync)")
-    print("Speed: + increase / - decrease (scales XYZ & joints/angles)")
-    print("Gripper: O=open, P=close")
-    print("\nCARTESIAN mode jogging: W/S=X, A/D=Y, Q/E=Z, H/K=α, U/J=β, I/Y=γ")
-    print("\nJOINTS mode jogging:")
-    print("  J1: A(+), D(-)")
-    print("  J2: S(+), W(-)")
-    print("  J3: Shift+S(+), Shift+W(-)")
-    print("  J4: E(+), Q(-)")
-    print("  J5: Shift+Alt+S(+), Shift+Alt+W(-)")
-    print("  J6: Shift+E(+), Shift+Q(-)")
-    print("================\n")
+    print("[ROBOT INITIALIZED]                      ", end='\r', flush=True)
+    print("\n=== PRESS 'H' TO VIEW CONTROLS ===")
 
     try:
         print("\n⚠️ SAFETY: Controls only work when Python window is focused!")
@@ -378,11 +370,28 @@ def main():
                     if keyboard.is_pressed("shift"): j[5]-=step_deg
                     else: j[3]-=step_deg
                     moved=True
+                if keyboard.is_pressed("h"):
+                    print("\n=== Controls ===")
+                    print("Mode toggle: Spacebar  (cartesian ⇄ joints)")
+                    print("Reset: Backspace (ResetError + ResumeMotion + resync)")
+                    print("Speed: + increase / - decrease (scales XYZ & joints/angles)")
+                    print("Gripper: O=open, P=close")
+                    print("\nCARTESIAN mode jogging: W/S=X, A/D=Y, Q/E=Z, H/K=α, U/J=β, I/Y=γ")
+                    print("\nJOINTS mode jogging:")
+                    print("  J1: A(+), D(-)")
+                    print("  J2: S(+), W(-)")
+                    print("  J3: Shift+S(+), Shift+W(-)")
+                    print("  J4: E(+), Q(-)")
+                    print("  J5: Shift+Alt+S(+), Shift+Alt+W(-)")
+                    print("  J6: Shift+E(+), Shift+Q(-)")
+                    print("================\n")
+                    time.sleep(0.5)
                 if moved:
                     try: robot.MoveJoints(*j)
                     except Exception as e: print(f"⚠️ Move rejected: {e}")
                     print(print_state_joints(j, gripper_state, speed_scale))
                     time.sleep(DELAY)
+                
 
             # --- Gripper ---
             if keyboard.is_pressed("o"):
