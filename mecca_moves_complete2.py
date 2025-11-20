@@ -6,16 +6,11 @@ import sys
 # ==============================
 # Movement & photo timing knobs
 # ==============================
-MOVE_WAIT       = 1.5
-#RUN_VECTOR      = [0, 2, 3, 4, 6, 4, 15, 4, 15, 4, 15, 4, 15, 4, 15, 4, 6, 4, 3, 1, 0] #this one is using inversion to mix vial (..., 4, 15, 4, 15, 4, 15, 4, 15, 4, ... )
-RUN_VECTOR      = [0, 2, 3, 4, 16, 9, 7, 8, 7, 9, 16, 4, 3, 1, 0]  #this is the one using a vortexer to mix vial (..., 9, 7, 8, 7, ...)
-PHOTO_SEL       = [16]    # sequences where photo is taken
-PHOTO_WAIT      = 0.0
+MOVE_WAIT       = 2.0
+RUN_VECTOR      = [0, 2, 3, 4, 9, 7, 8, 7, 8, 7, 9, 15, 16, 4, 3, 1, 0] 
 
-VORTEX_SEQ      = [8]    # vortex/shake sequences (NO photo here)
-VORTEX_WAIT     = 2.0
-
-extra_analysis_wait_time = 0.0
+PHOTO_SEQ       = [16]  # Take photos at this sequence
+PHOTO_WAIT      = 2.0   # Wait after photos downloaded
 
 # Grid layout
 ROWS            = 4       # A..D
@@ -31,18 +26,17 @@ SAFE_SEQ = 4  # set to None to disable
 # Example: {"A2": (0.5, -0.3), "D6": (-1.0, 0.2)}
 CUSTOM_OFFSETS = {"A2": (0.5, -0.4)}
 # ==============================
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-WATCH_DIR = os.path.join(BASE_DIR, "image_process_input")  # adjust if needed
+WATCH_DIR = os.path.join(BASE_DIR, "image_process_input")
 PHOTO_TIMEOUT = 30  # seconds max to wait before giving up
-
 
 def _parse_value(tok):
     try:
         return float(tok.split("=")[1])
     except Exception:
         return None
-
 
 def load_sequences(seq_path):
     sequences = {}
@@ -98,7 +92,6 @@ def load_sequences(seq_path):
     print(f"✅ Loaded {len(sequences)} base sequences.")
     return sequences
 
-
 # --- Offset Logic ---
 def _apply_offset_to_point(wp, dx, dy):
     if wp["type"] == "cartesian":
@@ -109,11 +102,10 @@ def _apply_offset_to_point(wp, dx, dy):
     else:
         return wp
 
-
 def _offset_sequences(base_sequences, dx, dy, extra_dx=0.0, extra_dy=0.0, label=""):
     seqs = {}
     for key, seq in base_sequences.items():
-        if key in (0, 1, 2, 3):  # apply grid offsets only to Cartesian base sequences
+        if key in (0, 1, 2, 3):
             pts = [_apply_offset_to_point(wp, dx + extra_dx, dy + extra_dy) for wp in seq["points"]]
             seqs[key] = {
                 "name": seq["name"] + f" (offset {dx+extra_dx:.1f},{dy+extra_dy:.1f})",
@@ -122,7 +114,6 @@ def _offset_sequences(base_sequences, dx, dy, extra_dx=0.0, extra_dy=0.0, label=
         else:
             seqs[key] = seq
     return seqs
-
 
 def generate_grid_sequences(base_sequences):
     grid_runs = []
@@ -138,37 +129,28 @@ def generate_grid_sequences(base_sequences):
             index += 1
     return grid_runs
 
-
-# --- Runner for Phase Separation ---
+# --- Runner ---
 def run_sequences(robot,
                   sequences: dict,
                   run_vector=RUN_VECTOR,
                   move_wait=MOVE_WAIT,
-                  photo_sel=PHOTO_SEL,
+                  photo_seq=PHOTO_SEQ,
                   photo_wait=PHOTO_WAIT,
-                  vortex_seq=VORTEX_SEQ,
-                  vortex_wait=VORTEX_WAIT,
                   camera_trigger=None,
                   post_photo_script=None,
                   max_positions=None):
     """
-    Phase separation run:
-    - Photos ONLY at PHOTO_SEL sequences.
-    - Exactly two PHOTO_SEL hits per vial (pre- and post-vortex).
-    - Camera is triggered immediately upon reaching seq 6, THEN photo_wait is applied.
-    - Vortex sequences are motion only (no photos).
+    Run through vial positions defined by ROWS×COLS grid.
+    Use `max_positions` to limit how many vial spots to analyze.
     """
-
     grid = generate_grid_sequences(sequences)
 
+    # Apply position limit if provided
     if max_positions is not None:
         print(f"🆕 Limiting run to first {max_positions} positions (out of {len(grid)})")
         grid = grid[:max_positions]
     else:
         print(f"🆕 No limit applied, running all {len(grid)} positions")
-
-    photo_pose = set(photo_sel if isinstance(photo_sel, list) else [photo_sel])
-    vortex_pose = set(vortex_seq if isinstance(vortex_seq, list) else [vortex_seq])
 
     # === Move to safe at start ===
     if SAFE_SEQ is not None and SAFE_SEQ in sequences:
@@ -182,106 +164,91 @@ def run_sequences(robot,
                 robot.GripperOpen()
             elif wp["grip"] == "Closed":
                 robot.GripperClose()
-            if move_wait > 0:
+            if move_wait and move_wait > 0:
                 time.sleep(move_wait)
 
     # === Run through all vials ===
     for idx, label, seqs in grid:
         print(f"\n=== ▶ Starting vial position {label} (#{idx}) ===")
         order = run_vector if run_vector is not None else sorted(seqs.keys())
-        photos_taken = 0
+        photo_pose = set(photo_seq if isinstance(photo_seq, list) else [photo_seq])
 
         for key in order:
             if key not in seqs:
                 print(f"⚠️ Sequence {key} missing, skipping")
                 continue
-
             seq = seqs[key]
             print(f"\n▶ Running Sequence {key}: {seq['name']}")
 
             for i, wp in enumerate(seq["points"]):
-                if wp["type"] == "cartesian":
-                    robot.MoveLin(*wp["data"])
+                wtype, data, grip = wp["type"], wp["data"], wp["grip"]
+                if wtype == "cartesian":
+                    robot.MoveLin(*data)
                 else:
-                    robot.MoveJoints(*wp["data"])
+                    robot.MoveJoints(*data)
 
-                if wp["grip"] == "Open":
+                if grip == "Open":
                     robot.GripperOpen()
-                elif wp["grip"] == "Closed":
+                elif grip == "Closed":
                     robot.GripperClose()
 
-                # 🟢 Key change: if this is a PHOTO_SEL sequence, trigger right after final waypoint
-                if key in photo_pose and i == len(seq["points"]) - 1:
-                    print(f"📸 Photo {photos_taken + 1}/2 at {label} (Seq {key})")
+                if move_wait and move_wait > 0:
+                    time.sleep(move_wait)
 
-                    # 1️⃣ Make sure the folder exists before listing it
-                    os.makedirs(WATCH_DIR, exist_ok=True)
+            # === Photo sequence handling ===
+            if key in photo_pose:
+                print(f"📸 [PhotoPose] Sequence {key} reached — triggering camera...")
 
-                    # 2️⃣ Snapshot current files before capture
-                    try:
-                        before_files = set(os.listdir(WATCH_DIR))
-                    except Exception as e:
-                        print(f"⚠️ Could not list {WATCH_DIR}: {e}")
-                        before_files = set()
+                # Make sure photo directory exists
+                os.makedirs(WATCH_DIR, exist_ok=True)
 
-                    # 3️⃣ Trigger camera
+                # Snapshot files BEFORE triggering camera
+                try:
+                    before_files = set(os.listdir(WATCH_DIR))
+                except Exception as e:
+                    print(f"⚠️ Could not list {WATCH_DIR}: {e}")
+                    before_files = set()
+
+                # Trigger the camera
+                try:
                     camera_trigger()
+                except Exception as e:
+                    print(f"⚠️ camera_trigger() failed: {e}")
 
-                    # 4️⃣ Wait for new photo file to appear
-                    print(f"📸 Waiting for photo download (timeout {PHOTO_TIMEOUT}s)...")
-                    start_time = time.time()
-                    new_file = None
-                    while True:
-                        try:
-                            after_files = set(os.listdir(WATCH_DIR))
-                        except Exception as e:
-                            print(f"⚠️ Could not read {WATCH_DIR}: {e}")
-                            after_files = before_files
+                # Wait for 1 new photo to appear
+                print(f"📸 Waiting for 1 new photo (timeout {PHOTO_TIMEOUT}s)...")
+                start_time = time.time()
+                new_files = set()
+                while True:
+                    try:
+                        after_files = set(os.listdir(WATCH_DIR))
+                    except Exception as e:
+                        print(f"⚠️ Could not read {WATCH_DIR}: {e}")
+                        after_files = before_files
 
-                        new_files = after_files - before_files
-                        if new_files:
-                            new_file = list(new_files)[0]
-                            print(f"✅ Photo downloaded: {new_file}")
-                            break
-                        if time.time() - start_time > PHOTO_TIMEOUT:
-                            print("⚠️ Timeout waiting for photo download.")
-                            break
-                        time.sleep(0.5)
+                    new_files = after_files - before_files
+                    if len(new_files) >= 1:
+                        print(f"✅ 1 new photo detected: {list(new_files)[0]}")
+                        break
 
-                    # 5️⃣ Optional short wait after confirmed download
-                    if photo_wait > 0:
-                        print(f"⏸️ Extra {photo_wait}s wait at Seq {key} (post-download)")
-                        time.sleep(photo_wait)
+                    if time.time() - start_time > PHOTO_TIMEOUT:
+                        print(f"⚠️ Timeout waiting for photo — only {len(new_files)} found.")
+                        break
+                    time.sleep(0.5)
 
-                    photos_taken += 1
+                # Optional hold time after confirmation
+                if photo_wait and photo_wait > 0:
+                    print(f"⏸️ [PhotoPose] Holding {photo_wait}s after photo download")
+                    time.sleep(photo_wait)
 
-
-                    # Run analysis after the second photo
-                    if photos_taken == 2:
-                       print(f"⏳ Waiting {extra_analysis_wait_time:.1f}s before analysis to ensure file saved...")
-                       time.sleep(extra_analysis_wait_time)  # safety buffer
-                       if post_photo_script:
-                           try:
-                               script_path = os.path.join(os.path.dirname(__file__), post_photo_script)
-                               print(f"▶️ Launching {post_photo_script} for {label} ...")
-                               subprocess.Popen([sys.executable, script_path, label])
-                           except Exception as e:
-                               print(f"⚠️ Failed to launch {post_photo_script}: {e}")
-                       photos_taken = 0  # reset for next vial
-
-                else:
-                    # Normal MOVE_WAIT for non-photo steps
-                    if move_wait > 0:
-                        time.sleep(move_wait)
-
-            # --- Vortex logic ---
-            if key in vortex_pose:
-                print(f"🌀 Vortex at Seq {key}, waiting {vortex_wait}s")
-                if vortex_wait > 0:
-                    time.sleep(vortex_wait)
-
-        if photos_taken != 0:
-            print(f"⚠️ Warning: Only {photos_taken}/2 photos taken for {label}. Check RUN_VECTOR.")
+                # Launch post-analysis script
+                if post_photo_script:
+                    try:
+                        script_path = os.path.join(os.path.dirname(__file__), post_photo_script)
+                        print(f"▶️ Launching {post_photo_script} for {label} ...")
+                        subprocess.Popen([sys.executable, script_path, label])
+                    except Exception as e:
+                        print(f"⚠️ Failed to launch {post_photo_script}: {e}")
 
         print(f"=== ✅ Finished vial position {label} ===")
 
@@ -297,7 +264,7 @@ def run_sequences(robot,
                 robot.GripperOpen()
             elif wp["grip"] == "Closed":
                 robot.GripperClose()
-            if move_wait > 0:
+            if move_wait and move_wait > 0:
                 time.sleep(move_wait)
 
-    print("\n✅ Phase separation vial positions complete (robot remains connected).")
+    print("\n✅ Selected vial positions complete (robot remains connected).")

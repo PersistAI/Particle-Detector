@@ -4,7 +4,7 @@ from mecademicpy.robot import Robot
 
 import mecca_moves_complete           # Particle imaging
 import mecca_moves_complete2          # Phase separation
-import mecca_moves_complete3          # Filter handling
+
 
 import subprocess
 import os
@@ -24,7 +24,7 @@ SEQUENCE_FILE   = "sequences_dualmode.txt"
 
 # Script to trigger after each photo
 POST_PHOTO_SCRIPT = "vialprogram1.py"      # for particles
-POST_PHOTO_SCRIPT_PHASE = "vialprogram2.py" # for phase separation
+POST_PHOTO_SCRIPT_PHASE = "pass.py" # for phase separation
 # ==============================
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))

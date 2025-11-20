@@ -227,13 +227,36 @@ def execute_sequence_step(robot, seq, key):
 
 
 def main():
-    robot = Robot()
-    robot.Connect(ROBOT_IP)
-    print("[=------] Connecting to Mecademic robot                                                         ", end='\r', flush=True)
+    print("[-------] Attempting Connection to Mecademic Robot                                                         ", end='\r', flush=True)
     time.sleep(1.5)
-    robot.WaitConnected()
+    robot = Robot()
+    # Connection retry loop
+    connected = False
+    while not connected:
+        try:
+            robot.Connect(ROBOT_IP)
+            print("[=------] Connecting to Mecademic Robot                                                         ", end='\r', flush=True)
+            time.sleep(1.5)
+            robot.WaitConnected()
+            connected = True
+            
+        except Exception as e:
+            print(f"\n❌ CONNECTION FAILED: Unable to reach robot at {ROBOT_IP}")
+            print(f"   Error: {type(e).__name__}")
+            print("\n   Possible causes:")
+            print("   • Robot is powered off")
+            print("   • Wrong IP address")
+            print("   • Network cable unplugged")
+            print("   • Robot is connected to different network\n")
+            
+            retry = input("Retry connection? (Y/N): ").strip().lower()
+            if retry != 'y':
+                print("Exiting...")
+                return
+            print("\n[-------] Retrying connection...                                                         ", end='\r', flush=True)
+            time.sleep(1.5)
 
-    print("[==-----] Connected to Mecademic robot                                                         ", end='\r', flush=True)
+    print("[==-----] Connected to Mecademic Robot                                                         ", end='\r', flush=True)
     robot.ActivateRobot()
     robot.Home()
     print("[===----] Homing Robot                                                         ", end='\r', flush=True)
